@@ -1,6 +1,6 @@
 ## StockTwits Classified Sentiment and Stock Returns
 
-Author : 
+Authors : 
 
 * Marc-Aurèle Divernois
 * Damir Filipovic
