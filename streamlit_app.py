@@ -10,3 +10,4 @@ clean = preprocess(text)
 
 bullish_proba = orig_mod.predict_proba([text])[0][0]
 
+st.write(bullish_proba)
