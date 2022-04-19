@@ -11,7 +11,7 @@ text = st.text_area(label="Enter message")
 if text:
     clean = preprocess(text)
 
-    bullish_proba = orig_mod.predict_proba([text])[0][0]
+    bullish_proba = orig_mod.predict_proba([text])[0][1]
 
     if bullish_proba > 0.72:
         sent = 'Bullish'
