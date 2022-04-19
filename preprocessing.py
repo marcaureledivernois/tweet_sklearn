@@ -1,17 +1,11 @@
-import numpy as np
-import pandas as pd
-import string
-import re
-import unidecode
-import codecs
-
-#=============================== spacy cleaner =========================================================================
-
-
-# nlp = spacy.load('en_core_web_sm')
-
 
 def preprocess(text):
+    import numpy as np
+    import pandas as pd
+    import string
+    import re
+    import unidecode
+    import codecs
     contraction_mapping = {"ain't": "is not", "aren't": "are not", "can't": "cannot",
                            "can't've": "cannot have", "'cause": "because", "could've": "could have",
                            "couldn't": "could not", "couldn't've": "could not have", "didn't": "did not",
