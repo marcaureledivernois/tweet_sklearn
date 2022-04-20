@@ -3,8 +3,10 @@ import cloudpickle as cp
 from preprocessing import preprocess
 import streamlit as st
 
+#@st.experimental_memo
 def load_model(url_model):
     return cp.load(urlopen(url_model))
+
 
 mod = load_model("https://github.com/marcaureledivernois/tweet_sklearn/releases/download/v1.0/ros_fit.sav")
 
@@ -18,13 +20,13 @@ if text:
     bullish_proba = mod.predict_proba([text])[0][1]
 
     if bullish_proba > 0.6:
-        sent = 'Bullish'
+        sent = '**Bullish**'
     elif 0.4 < bullish_proba < 0.6:
-        sent = 'Neutral'
+        sent = '**Neutral**'
     elif bullish_proba < 0.4:
-        sent = 'Bearish'
+        sent = '**Bearish**'
     else:
         sent = 'error'
 
     st.write('The score of your message is :', bullish_proba)
-    st.write('Given our optimal thresholds, the message is classified as', sent)
+    st.write('Given our optimal thresholds, the message is classified as', sent,'.')
