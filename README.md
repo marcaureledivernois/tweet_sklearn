@@ -14,4 +14,7 @@ Polarity is positively associated with contemporaneous stock returns.
 On average, polarity is not able to predict next-day stock returns but when we focus on specific events (defined as sudden peak of message volume), 
 polarity has predictive power on abnormal returns.
 
-Stocktwits Sentiment Classification App : https://share.streamlit.io/marcaureledivernois/tweet_sklearn/main
+
+# Stocktwits Sentiment Classification App : 
+
+https://share.streamlit.io/marcaureledivernois/tweet_sklearn/main
