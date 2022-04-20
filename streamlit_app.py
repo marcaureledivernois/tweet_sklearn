@@ -3,8 +3,10 @@ import cloudpickle as cp
 from preprocessing import preprocess
 import streamlit as st
 
+
 def load_model(url_model):
     return cp.load(urlopen(url_model))
+
 
 mod = load_model("https://github.com/marcaureledivernois/tweet_sklearn/releases/download/v1.0/ros_fit.sav")
 
