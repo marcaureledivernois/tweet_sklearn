@@ -9,7 +9,7 @@ def load_model(url_model):
 mod = load_model("https://github.com/marcaureledivernois/tweet_sklearn/releases/download/v1.0/ros_fit.sav")
 
 st.title('StockTwits Sentiment classifier')
-st.header('Sentiment classifier trained on 90 million messages from Stocktwits.com. Messages are classified into bullish, neutral or bearish classes.')
+st.write('Sentiment classifier trained on 90 million messages from Stocktwits.com. Messages are classified into bullish, neutral or bearish classes.')
 text = st.text_area(label="Enter message")
 
 if text:
