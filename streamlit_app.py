@@ -3,7 +3,6 @@ import cloudpickle as cp
 from preprocessing import preprocess
 import streamlit as st
 
-@st.experimental_memo
 def load_model(url_model):
     return cp.load(urlopen(url_model))
 
