@@ -15,6 +15,6 @@ On average, polarity is not able to predict next-day stock returns but when we f
 polarity has predictive power on abnormal returns.
 
 
-# Stocktwits Sentiment Classification App : 
+## Stocktwits Sentiment Classification App : 
 
 https://share.streamlit.io/marcaureledivernois/tweet_sklearn/main
