@@ -28,5 +28,4 @@ if text:
     else:
         sent = 'error'
 
-    st.write('The score of your message is :', bullish_proba)
     st.write('Given our optimal thresholds, the message is classified as', sent,'.')
