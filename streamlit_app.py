@@ -4,7 +4,7 @@ from preprocessing import preprocess
 import streamlit as st
 
 
-@st.cache(max_entries = 10, ttl=600)
+@st.experimental_singleton
 def load_model(url_model):
     return cp.load(urlopen(url_model))
 
