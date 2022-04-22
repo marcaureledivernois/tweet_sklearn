@@ -11,8 +11,8 @@ def load_model(url_model):
 def test(x):
     return x*2
 
-test(3)
-test(4)
+st.write(test(3))
+st.write(test(4))
 
 mod = load_model("https://github.com/marcaureledivernois/tweet_sklearn/releases/download/v1.0/ros_fit.sav")
 
