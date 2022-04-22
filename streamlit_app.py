@@ -7,13 +7,6 @@ import streamlit as st
 def load_model(url_model):
     return cp.load(urlopen(url_model))
 
-@st.cache
-def test(x):
-    return x*2
-
-st.write(test(3))
-st.write(test(4))
-
 mod = load_model("https://github.com/marcaureledivernois/tweet_sklearn/releases/download/v1.0/ros_fit.sav")
 
 st.title('StockTwits Sentiment classifier')
