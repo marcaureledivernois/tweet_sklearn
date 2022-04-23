@@ -78,6 +78,7 @@ if option == "Polarity Time-Series":
      'Select a Ticker',
      ('AAPL', 'AMD', 'AMRN', 'AMZN', 'BABA','BAC','BB','FB','GLD','IWM','JNUG','MNKD','NFLX','PLUG','QQQ','SPY','TSLA','TWTR','UVXY'))
     
+    @st.experimental.singleton
     def plot_activity(ticker):
         cut_act = sentratio_and_price[(sentratio_and_price['ticker']==ticker) & (sentratio_and_price['businessday']==True)]
         cut_event = eventlist[eventlist['ticker']==ticker]
