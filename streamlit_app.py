@@ -22,11 +22,11 @@ if text:
     bullish_proba = mod.predict_proba([text])[0][1]
 
     if bullish_proba > 0.6:
-        sent = '**Bullish**'
+        sent = 'Bullish'
     elif 0.4 < bullish_proba < 0.6:
-        sent = '**Neutral**'
+        sent = 'Neutral'
     elif bullish_proba < 0.4:
-        sent = '**Bearish**'
+        sent = 'Bearish'
     else:
         sent = 'error'
     
