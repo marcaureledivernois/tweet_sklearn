@@ -92,8 +92,9 @@ if option == "Polarity Time-Series":
         plt.ylabel('N')
         plt.title('Activity - ' + ticker)
         st.pyplot(plt)
-
-    plot_activity(tic)
+    
+    if tic:
+        plot_activity(tic)
         
 if option == "Download Data":
     st.download_button(label="Download Tweets Classifier",data=mod,file_name='classifier.sav')
