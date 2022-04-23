@@ -73,6 +73,7 @@ if option == "Polarity Time-Series":
     sentratio_and_price = load_df('data/sentratio_and_price_st.csv')
     eventlist = load_df('data/eventlist_st.csv')
     
+    st.header('WORK IN PROGRESS')
     
     tic = st.selectbox(
      'Select a Ticker',
@@ -98,4 +99,6 @@ if option == "Polarity Time-Series":
         st.pyplot(plot_activity(tic))
         
 if option == "Download Data":
+    
+    st.header('WORK IN PROGRESS')
     st.download_button(label="Download Tweets Classifier",data=mod,file_name='classifier.sav')
