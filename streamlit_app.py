@@ -16,7 +16,7 @@ mod = load_model("https://github.com/marcaureledivernois/tweet_sklearn/releases/
 
 st.title('Tweets Sentiment Analysis')
 st.write('This NLP application is trained on 90 million tweets scraped from the API of Stocktwits.com from 2010 to 2020. Chose "Sentiment classifier" to classify any tweet you write, "Polarity Time-Series" for interactive polarity plots, and "Download data" to get my data.')
-option = st.selectbox('What tool do you want to use?',('Sentiment Classifier', 'Polarity Time-Series', 'Download Data'))
+option = st.selectbox('Which tool do you want to use?',('Sentiment Classifier', 'Polarity Time-Series', 'Download Data'))
 #st.subheader('*By Marc-Aurèle Divernois*')
 
 if option == "Sentiment Classifier":
