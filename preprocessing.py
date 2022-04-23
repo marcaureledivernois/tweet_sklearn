@@ -6,6 +6,7 @@ def preprocess(text):
     import re
     import unidecode
     import codecs
+    import spacy
     contraction_mapping = {"ain't": "is not", "aren't": "are not", "can't": "cannot",
                            "can't've": "cannot have", "'cause": "because", "could've": "could have",
                            "couldn't": "could not", "couldn't've": "could not have", "didn't": "did not",
