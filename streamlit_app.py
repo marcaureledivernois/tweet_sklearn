@@ -77,7 +77,7 @@ if option == "Polarity Time-Series":
     
     tic = st.selectbox(
      'Select a Ticker',
-     ('AAPL', 'AMD', 'AMRN', 'AMZN', 'BABA','BAC','BB','FB','GLD','IWM','JNUG','MNKD','NFLX','PLUG','QQQ','SPY','TSLA','TWTR','UVXY'))
+     ('<select>','AAPL', 'AMD', 'AMRN', 'AMZN', 'BABA','BAC','BB','FB','GLD','IWM','JNUG','MNKD','NFLX','PLUG','QQQ','SPY','TSLA','TWTR','UVXY'))
     
     @st.experimental_singleton
     def plot_activity(ticker):
@@ -95,10 +95,10 @@ if option == "Polarity Time-Series":
         plt.title('Activity - ' + ticker)
         return plt
     
-    if tic:
+    if tic != '<select>':
         st.pyplot(plot_activity(tic))
         
 if option == "Download Data":
     
     st.header('WORK IN PROGRESS')
-    st.download_button(label="Download Tweets Classifier",data=mod,file_name='classifier.sav')
+    #st.download_button(label="Download Tweets Classifier",data=mod,file_name='classifier.sav')
