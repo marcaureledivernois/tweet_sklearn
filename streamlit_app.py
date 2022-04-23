@@ -40,9 +40,6 @@ if text:
     feature_names = np.array(mod.named_steps["tfidfvectorizer"].get_feature_names())
     coefs = mod.named_steps["logisticregression"].coef_.flatten()
 
-    feature_names[np.nonzero(mod.named_steps.tfidfvectorizer.transform([text]).toarray()[0])[0]]
-    coefs[np.nonzero(mod.named_steps.tfidfvectorizer.transform([text]).toarray()[0])[0]]
-
     feat_importance = np.multiply(mod.named_steps.tfidfvectorizer.transform([text]).toarray(), mod.named_steps.logisticregression.coef_)
     feat_importance = feat_importance[feat_importance != 0 ]
 
