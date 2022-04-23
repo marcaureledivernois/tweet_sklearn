@@ -72,6 +72,12 @@ if option == "Polarity Time-Series":
     
     sentratio_and_price = load_df('data/sentratio_and_price_st.csv')
     eventlist = load_df('data/eventlist_st.csv')
+    
+    
+    tic = st.selectbox(
+     'Select a Ticker',
+     ('AAPL', 'AMD', 'AMRN', 'AMZN', 'BABA','BAC','BB','FB','GLD','IWM','JNUG','MNKD','NFLX','PLUG','QQQ','SPY','TSLA','TWTR','UVXY'))
+    
     def plot_activity(ticker):
         cut_act = sentratio_and_price[(sentratio_and_price['ticker']==ticker) & (sentratio_and_price['businessday']==True)]
         cut_event = eventlist[eventlist['ticker']==ticker]
@@ -87,7 +93,7 @@ if option == "Polarity Time-Series":
         plt.title('Activity - ' + ticker)
         st.pyplot(plt)
 
-    plot_activity('AAPL')
+    plot_activity(tic)
         
 if option == "Download Data":
     st.download_button(label="Download Tweets Classifier",data=mod,file_name='classifier.sav')
