@@ -73,8 +73,7 @@ if option == "Polarity Time-Series":
     sentratio_and_price = load_df('data/sentratio_and_price_st.csv')
     eventlist = load_df('data/eventlist_st.csv')
     
-    st.header('WORK IN PROGRESS')
-    
+
     tic = st.selectbox(
      'Select a Ticker',
      ('<select>','AAPL', 'AMD', 'AMRN', 'AMZN', 'BABA','BAC','BB','FB','GLD','IWM','JNUG','MNKD','NFLX','PLUG','QQQ','SPY','TSLA','TWTR','UVXY'))
@@ -124,7 +123,7 @@ if option == "Polarity Time-Series":
     
     
     if tic != '<select>':
-        st.pyplot(plot_activity(tic))
+        #st.pyplot(plot_activity(tic))
         st.pyplot(plot_bullishness_return_company(tic))
         
 if option == "Download Data":
