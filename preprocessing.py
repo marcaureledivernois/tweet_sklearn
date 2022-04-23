@@ -7,6 +7,8 @@ def preprocess(text):
     import unidecode
     import codecs
     import spacy
+    import en_core_web_sm
+    nlp = en_core_web_sm.load()
     contraction_mapping = {"ain't": "is not", "aren't": "are not", "can't": "cannot",
                            "can't've": "cannot have", "'cause": "because", "could've": "could have",
                            "couldn't": "could not", "couldn't've": "could not have", "didn't": "did not",
