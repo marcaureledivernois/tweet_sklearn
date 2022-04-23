@@ -66,7 +66,7 @@ if option == "Sentiment Classifier":
 
     
 if option == "Polarity Time-Series":
-    @experimental_memo
+    @st.experimental_memo
     def load_df(filename):
         return pd.read_csv(filename)
     
