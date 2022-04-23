@@ -4,6 +4,7 @@ from preprocessing import preprocess
 import streamlit as st
 import seaborn as sns
 import numpy as np
+import pandas as pd
 
 @st.experimental_singleton
 def load_model(url_model):
