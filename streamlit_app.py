@@ -70,8 +70,8 @@ if option == "Sentiment Classifier":
     def load_df(filename):
         return pd.read_csv(filename)
     
-    sentratio_and_price = load_df('sentratio_and_price.csv')
-    eventlist = load_df('eventlist.csv)
+    sentratio_and_price = load_df('data/sentratio_and_price.csv')
+    eventlist = load_df('data/eventlist.csv)
     def plot_activity(ticker):
         cut_act = sentratio_and_price[(sentratio_and_price['ticker']==ticker) & (sentratio_and_price['businessday']==True)]
         cut_event = eventlist[eventlist['ticker']==ticker]
@@ -85,13 +85,12 @@ if option == "Sentiment Classifier":
         plt.xlabel('Date')
         plt.ylabel('N')
         plt.title('Activity - ' + ticker)
-        #plt.savefig('Activity_' + ticker + '.jpg')
-        plt.show()
+        st.pyplot()
 
     plot_activity('AAPL')
         
  if option == "Download Data":
     st.download_button(
      label="Download Tweets Classifier",
-     data=csv,
+     data=mod,
      file_name='classifier.sav')
