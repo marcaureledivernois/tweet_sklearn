@@ -95,8 +95,37 @@ if option == "Polarity Time-Series":
         plt.title('Activity - ' + ticker)
         return plt
     
+    @st.experimental_singleton
+    def plot_bullishness_return_company(ticker):
+        df = sentratio_and_price[sentratio_and_price['ticker']==ticker]
+        df = df[df['daily_return'].between(df['daily_return'].quantile(.02),df['daily_return'].quantile(.98))]  # without outliers
+        df = df[df['date'] > '2019-01-01']
+        plt.style.use('seaborn-white')
+        fig, ax1 = plt.subplots()
+
+        color = 'tab:red'
+        ax1.set_xlabel('Date')
+        ax1.set_ylabel('Polarity', color=color)
+        #ax1.plot(df['date'], df['Bullishness'].shift(1), color=color)
+        ax1.plot(df['date'], df['Polarity'], color=color)
+        ax1.tick_params(axis='y', labelcolor=color)
+
+        ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+
+        color = 'tab:blue'
+        ax2.set_ylabel('Return', color=color)  # we already handled the x-label with ax1
+        ax2.plot(df['date'], df['daily_return'], color=color)
+        ax2.tick_params(axis='y', labelcolor=color)
+
+        print('Corr coef : ', df.corr()['Polarity']['daily_return'])
+        plt.title(ticker + ' - Correlation between Polarity and Return : ' + "{0:.2f}".format(df.corr()['Polarity']['daily_return']))
+        fig.tight_layout()  # otherwise the right y-label is slightly clipped
+        return fig
+    
+    
     if tic != '<select>':
         st.pyplot(plot_activity(tic))
+        st.pyplot(plot_bullishness_return_company(tic))
         
 if option == "Download Data":
     
