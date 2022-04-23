@@ -64,6 +64,31 @@ if option == "Sentiment Classifier":
         ax.set_xlabel("Feature Name", fontsize=22)
         st.pyplot(fig)
 
+    
+ if option == "Polarity Time-Series":
+    @experimental_memo
+    def load_df(filename):
+        return pd.read_csv(filename)
+    
+    sentratio_and_price = load_df('sentratio_and_price.csv')
+    eventlist = load_df('eventlist.csv)
+    def plot_activity(ticker):
+        cut_act = sentratio_and_price[(sentratio_and_price['ticker']==ticker) & (sentratio_and_price['businessday']==True)]
+        cut_event = eventlist[eventlist['ticker']==ticker]
+
+        plt.plot(cut_act['date'],cut_act['N'],'black')
+        plt.scatter(cut_event.loc[cut_event['Type']=='Good','date'],cut_event.loc[cut_event['Type']=='Good','N'],marker='^', s=80, facecolors='none', edgecolors='g')
+        plt.scatter(cut_event.loc[cut_event['Type'] == 'Neutral', 'date'], cut_event.loc[cut_event['Type'] == 'Neutral', 'N'],
+                    s=80, facecolors='none', edgecolors='gray')
+        plt.scatter(cut_event.loc[cut_event['Type'] == 'Bad', 'date'], cut_event.loc[cut_event['Type'] == 'Bad', 'N'],
+                    s=80, facecolors='none',marker='v', edgecolors='r')
+        plt.xlabel('Date')
+        plt.ylabel('N')
+        plt.title('Activity - ' + ticker)
+        #plt.savefig('Activity_' + ticker + '.jpg')
+        plt.show()
+
+    plot_activity('AAPL')
         
  if option == "Download Data":
     st.download_button(
