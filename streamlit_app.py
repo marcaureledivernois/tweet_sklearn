@@ -70,8 +70,8 @@ if option == "Polarity Time-Series":
     def load_df(filename):
         return pd.read_csv(filename)
     
-    sentratio_and_price = load_df('data/sentratio_and_price.csv')
-    eventlist = load_df('data/eventlist.csv')
+    sentratio_and_price = load_df('data/sentratio_and_price_st.csv')
+    eventlist = load_df('data/eventlist_st.csv')
     def plot_activity(ticker):
         cut_act = sentratio_and_price[(sentratio_and_price['ticker']==ticker) & (sentratio_and_price['businessday']==True)]
         cut_event = eventlist[eventlist['ticker']==ticker]
