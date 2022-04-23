@@ -8,7 +8,7 @@ def preprocess(text):
     import codecs
     import spacy
     import en_core_web_sm
-    nlp = en_core_web_sm.load()
+    
     contraction_mapping = {"ain't": "is not", "aren't": "are not", "can't": "cannot",
                            "can't've": "cannot have", "'cause": "because", "could've": "could have",
                            "couldn't": "could not", "couldn't've": "could not have", "didn't": "did not",
@@ -53,6 +53,8 @@ def preprocess(text):
                            "you'd": "you would", "you'd've": "you would have", "you'll": "you will",
                            "you'll've": "you will have", "you're": "you are", "you've": "you have"}
 
+    nlp = en_core_web_sm.load()
+    
     apostrophe_handled = re.sub("’", "'", text)                                                                         # keep only one type of apostrophe
     try:
         decoded = unidecode.unidecode(codecs.decode(apostrophe_handled, 'unicode_escape'))                              # decode in ascii
@@ -60,9 +62,19 @@ def preprocess(text):
         decoded = unidecode.unidecode(apostrophe_handled)
     expanded = ' '.join([contraction_mapping[t] if t in contraction_mapping else t for t in decoded.split(" ")])        # map contraction form into expanded form
     noticks = re.sub(r'\$\S+', '', expanded, flags=re.MULTILINE)                                                        # remove tickers
-    nousers = re.sub(r'@\S+', '', noticks, flags=re.MULTILINE)
-    punctuationfree="".join([i.lower() for i in nousers if i not in string.punctuation])
-    tokens = re.split('\W+', punctuationfree)
-    joined = ' '.join(tokens).lower()
+    nousers = re.sub(r'@\S+', '', noticks, flags=re.MULTILINE)                                                          # remove users
+    parsed = nlp(nousers)                                                                                               # POS, lemmatize
+    final_tokens = []
+    for t in parsed:
+        if t.is_punct or t.is_space or t.like_num or t.like_url or str(t).startswith('@'):                              # remove punctuation, spaces, numbers, url
+            pass
+        else:
+            if t.lemma_ == '-PRON-':
+                final_tokens.append(str(t))
+            else:
+                sc_removed = re.sub("[^a-zA-Z]", '', str(t.lemma_))
+                if len(sc_removed) > 1:
+                    final_tokens.append(sc_removed)
+    joined = ' '.join(final_tokens).lower()
     spell_corrected = re.sub(r'(.)\1+', r'\1\1', joined)
     return spell_corrected
