@@ -1,5 +1,5 @@
 
-## Stocktwits Sentiment Classification App : 
+## Stocktwits Sentiment Analysis Interactive App : 
 
 https://share.streamlit.io/marcaureledivernois/tweet_sklearn/main
 
