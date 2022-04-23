@@ -76,7 +76,7 @@ if option == "Polarity Time-Series":
         cut_act = sentratio_and_price[(sentratio_and_price['ticker']==ticker) & (sentratio_and_price['businessday']==True)]
         cut_event = eventlist[eventlist['ticker']==ticker]
 
-        fig, ax = plt.plot(cut_act['date'],cut_act['N'],'black')
+        fig = plt.plot(cut_act['date'],cut_act['N'],'black')
         plt.scatter(cut_event.loc[cut_event['Type']=='Good','date'],cut_event.loc[cut_event['Type']=='Good','N'],marker='^', s=80, facecolors='none', edgecolors='g')
         plt.scatter(cut_event.loc[cut_event['Type'] == 'Neutral', 'date'], cut_event.loc[cut_event['Type'] == 'Neutral', 'N'],
                     s=80, facecolors='none', edgecolors='gray')
