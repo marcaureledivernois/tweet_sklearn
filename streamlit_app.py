@@ -65,7 +65,7 @@ if option == "Sentiment Classifier":
         st.pyplot(fig)
 
     
- if option == "Polarity Time-Series":
+if option == "Polarity Time-Series":
     @experimental_memo
     def load_df(filename):
         return pd.read_csv(filename)
@@ -76,7 +76,7 @@ if option == "Sentiment Classifier":
         cut_act = sentratio_and_price[(sentratio_and_price['ticker']==ticker) & (sentratio_and_price['businessday']==True)]
         cut_event = eventlist[eventlist['ticker']==ticker]
 
-        plt.plot(cut_act['date'],cut_act['N'],'black')
+        fig, ax = plt.plot(cut_act['date'],cut_act['N'],'black')
         plt.scatter(cut_event.loc[cut_event['Type']=='Good','date'],cut_event.loc[cut_event['Type']=='Good','N'],marker='^', s=80, facecolors='none', edgecolors='g')
         plt.scatter(cut_event.loc[cut_event['Type'] == 'Neutral', 'date'], cut_event.loc[cut_event['Type'] == 'Neutral', 'N'],
                     s=80, facecolors='none', edgecolors='gray')
@@ -85,12 +85,9 @@ if option == "Sentiment Classifier":
         plt.xlabel('Date')
         plt.ylabel('N')
         plt.title('Activity - ' + ticker)
-        st.pyplot()
+        st.pyplot(fig)
 
     plot_activity('AAPL')
         
- if option == "Download Data":
-    st.download_button(
-     label="Download Tweets Classifier",
-     data=mod,
-     file_name='classifier.sav')
+if option == "Download Data":
+    st.download_button(label="Download Tweets Classifier",data=mod,file_name='classifier.sav')
