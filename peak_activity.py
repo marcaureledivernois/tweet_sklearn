@@ -13,6 +13,8 @@ import scipy
 from scipy.stats import tiecorrect, rankdata, gaussian_kde
 from pandas.tseries.offsets import BDay
 from itertools import product
+import seaborn as sns
+from scipy.stats import t
 
 #df = pd.read_pickle('df_clean.pkl')
 #df = pd.read_pickle('P:\\df_withcorona_clean_1.pkl')
@@ -584,6 +586,8 @@ plt.show()
 #===============================  plots =====================================
 
 
+
+
 eventlist = pd.merge(eventlist[['date','ticker','Index','Type']], sentratio_and_price[['date', 'ticker', 'N',]], how='left', left_on=['ticker', 'date'],
                      right_on=['ticker', 'date'])
 
@@ -882,7 +886,7 @@ plt.stackplot(ts_neut.index,ts_neut['N_lab_bear']/ts_neut['N1']*100,
               (ts_neut['N_bull_class']-ts_neut['N_lab_bull'])/ts_neut['N1']*100,
               (ts_neut['N_lab_bull'])/ts_neut['N1']*100,
              labels=['% labeled as bearish', '% classified as bearish','% classified as neutral','% classified as bullish', '% labeled as bullish'], colors = [(1, 0, 0, 1),(1, 0, 0, 0.4),'lightgray',(0.0, 0.5019607843137255, 0.0,0.4),(0.0, 0.5019607843137255, 0.0,1)])
-plt.legend(reversed(plt.legend().legendHandles), reversed(['% labeled as bearish', '% classified as bearish','% classified as neutral','% classified as bullish', '% labeled as bullish']), frameon=True, loc="lower center", bbox_to_anchor=(0.5, -0.32), ncol=2)
+plt.legend(reversed(plt.legend().legendHandles), reversed(['% labeled as bearish', '% classified as bearish','% classified as neutral','% classified as bullish', '% labeled as bullish']), frameon=True, loc = 'center left')
 plt.title('Message classification across time (month agg.)')
 plt.show()
 
@@ -1000,14 +1004,66 @@ print(np.mean(eventstudy.loc[(eventstudy['d']==0) & (eventstudy['Type'] == "Bad"
 
 test_distrib(eventstudy, -2, 'cumRet')
 
+#################################### events followed by events #########################################################
+
+Bull_Bull, Bull_Neut, Bull_Bear, Neut_Bull, Neut_Neut, Neut_Bear, Bear_Bull, Bear_Neut, Bear_Bear = 0, 0, 0, 0, 0, 0, 0, 0, 0
+dic = {'Bull_Bull':0, 'Bull_Neut':0, 'Bull_Bear':0, 'Neut_Bull':0, 'Neut_Neut':0, 'Neut_Bear':0, 'Bear_Bull':0, 'Bear_Neut':0, 'Bear_Bear':0}
+
+def cnt_follow(x):
+        for i in x.index:
+            if len(x.loc[i + 1:i + 1, 'Type']) > 0:
+                if x.loc[i,'Type'] == 'Good':
+                    if   x.loc[i+1:i+1,'Type'].values[0] == 'Good': dic['Bull_Bull'] =+1
+                    elif x.loc[i+1:i+1,'Type'].values[0] == 'Neutral': dic['Bull_Neut'] =+1
+                    elif x.loc[i+1:i+1, 'Type'].values[0] == 'Bad': dic['Bull_Bear'] = +1
+                elif x.loc[i,'Type'] == 'Neutral':
+                    if   x.loc[i+1:i+1,'Type'].values[0] == 'Good': dic['Neut_Bull'] =+1
+                    elif x.loc[i+1:i+1,'Type'].values[0] == 'Neutral': dic['Neut_Neut'] =+1
+                    elif x.loc[i+1:i+1,'Type'].values[0] == 'Bad': dic['Neut_Bear'] = +1
+                elif x.loc[i,'Type'] == 'Bad':
+                    if   x.loc[i+1:i+1,'Type'].values[0] == 'Good': dic['Bear_Bull'] =+1
+                    elif x.loc[i+1:i+1,'Type'].values[0] == 'Neutral': dic['Bear_Neut'] =+1
+                    elif x.loc[i+1:i+1, 'Type'].values[0] == 'Bad': dic['Bear_Bear'] = +1
+        return dic
+
+dic = eventlist.groupby('ticker').apply(cnt_follow)
+            
+Bull_Bull, Bull_Neut, Bull_Bear = Bull_Bull/np.sum(eventstudy['Type']=='Good'), \
+                                  Bull_Neut/np.sum(eventstudy['Type']=='Good'), Bull_Bear /np.sum(eventstudy['Type']=='Good')
+
+Neut_Bull, Neut_Neut, Neut_Bear = Neut_Bull/np.sum(eventstudy['Type']=='Good'), \
+                                  Neut_Neut/np.sum(eventstudy['Type']=='Good'), Neut_Bear /np.sum(eventstudy['Type']=='Good')
+
+Bear_Bull, Bear_Neut, Bear_Bear = Bear_Bull/np.sum(eventstudy['Type']=='Good'), \
+                                  Bear_Neut/np.sum(eventstudy['Type']=='Good'), Bear_Bear /np.sum(eventstudy['Type']=='Good')
+
+print("{:. 0%}".format(Bull_Bull))
+
+
 #################################### portfolios ########################################################################
 
-sentratio_and_price['CAP'] =  sentratio_and_price.groupby(['ticker'])['abnormal_pol'].cumsum() - sentratio_and_price.groupby(['ticker'])['abnormal_pol'].cumsum().shift(14)
-
-#with open('sentratio_and_price_for_pf.pkl', 'wb' ) as f:
+#with open('sentratio_and_price_for_pf2.pkl', 'wb' ) as f:     #sentratio_and_price_for_pf
 #    pickle.dump(sentratio_and_price, f)
 
-sentratio_and_price = pd.read_pickle('sentratio_and_price_for_pf.pkl')
+
+sentratio_and_price = pd.read_pickle('sentratio_and_price_for_pf2.pkl')
+
+CAP_WINDOW = 14
+
+sentratio_and_price['CAP'] =  sentratio_and_price.groupby(['ticker'])['abnormal_pol'].cumsum() - sentratio_and_price.groupby(['ticker'])['abnormal_pol'].cumsum().shift(CAP_WINDOW)
+
+#reset CAP to 0 everytime there is an event
+sentratio_and_price['CAPwithReset'] = sentratio_and_price['CAP']
+
+def cumsumafterevent(x):
+    for i in x.index:
+        if x.loc[i,'Event3']==True:
+            x.loc[i, 'CAPwithReset'] = 0
+            x.loc[i+1:i+CAP_WINDOW, 'CAPwithReset'] = sentratio_and_price.loc[i+1:i+CAP_WINDOW,'abnormal_pol'].cumsum()
+    return x
+
+sentratio_and_price = sentratio_and_price.groupby('ticker').apply(cumsumafterevent)
+
 sentratio_and_price.loc[(sentratio_and_price['date'] == pd.to_datetime(pd.datetime(2012, 3, 8), utc=True)) &
                         (sentratio_and_price['ticker'] == 'UVXY'), 'daily_return'] = -0.08
 
@@ -1020,412 +1076,254 @@ print('there are currently ' + str(tickers_to_keep.__len__()) + ' firms in the s
 sentratio_and_price = sentratio_and_price[sentratio_and_price['ticker'].isin(tickers_to_keep)]
 sentratio_and_price = sentratio_and_price.reset_index(drop=True)
 
+sentratio_and_price['CAP'] = sentratio_and_price['CAPwithReset']
+
 CAP = pd.pivot_table(sentratio_and_price, values = 'CAP', index = 'date', columns='ticker',dropna = False)
-CAP = CAP[14:]
+CAP = CAP[CAP_WINDOW:]
 CAP = CAP.replace(0, np.nan)
 
 RET = pd.pivot_table(sentratio_and_price, values = 'daily_return', index = 'date', columns='ticker',dropna = False)
-RET = RET[14:]
+RET = RET[CAP_WINDOW:]
 RET = RET.replace(np.nan, 0)
 
 
-def portfolios(strategy, rebalancing_day,lev):
-    PfWeights = RET.copy()
-    PfWeights.loc[:,:] = 0
-
-    for _, row in CAP.iterrows():
-
-        col_to_keep = RET.loc[_,RET.loc[_,:]!= 0].index.to_list()
-        col_to_remove = RET.loc[_, RET.loc[_, :] == 0].index.to_list()
-        if not row[col_to_keep].empty:
-            if row.name.weekday() == rebalancing_day: #construct long short portfolio on friday 16pm
-                #PfWeights.loc[_, row <=  np.nanpercentile(row[col_to_keep], np.arange(0, 100, 10))[0]] = -1
-                #PfWeights.loc[_, row >= np.nanpercentile(row[col_to_keep], np.arange(0, 100, 10))[-1]] = 1
-                PfWeights.loc[_, row <=  -1.04] = -1
-                PfWeights.loc[_, row >= 1.163] = 1
-                PfWeights.loc[_, col_to_remove] = 0
-            else:
-                PfWeights.loc[_, :] = np.nan
-
-    PfWeights = PfWeights.ffill() #hold portfolio
-
-    if strategy=='Long only':
-        leverage = 0
-        for _, row in PfWeights.iterrows():  # compute weights
-            PfWeights.loc[_, row == 1] = (1 + leverage) / np.abs(np.sum(row == 1))
-            PfWeights.loc[_, row == -1] = 0
-    if strategy=='Short only':
-        leverage = -1
-        for _, row in PfWeights.iterrows():  # compute weights
-            PfWeights.loc[_, row == 1] = 0
-            PfWeights.loc[_, row == -1] = leverage / np.abs(np.sum(row == -1))
-    if strategy == 'Long minus short':
-        leverage = lev
-        for _, row in PfWeights.iterrows():  # compute weights
-            PfWeights.loc[_, row == 1] = (1 + leverage) / np.sum(row == 1)
-            PfWeights.loc[_, row == -1] = -leverage / np.abs(np.sum(row == -1))
-
-    EquallyWeightedRet = np.log((np.sum(RET, axis = 1)/np.sum(RET!=0, axis = 1))+1)
-
-    contrib = RET*PfWeights.shift(1)
-    PfRet = np.log(np.sum(RET*PfWeights.shift(1),axis=1)+1)
-    PfRet = PfRet[PfRet.index<pd.to_datetime(pd.datetime(2020,1,1), utc = True)]
-    SPY = np.log(1+ RET['SPY'])
-
-
-    plt.plot(PfRet.index,PfRet.cumsum(),'r')
-    plt.plot(EquallyWeightedRet.index,EquallyWeightedRet.cumsum(),'b')
-    plt.plot(RET.index,SPY.cumsum(),'g')
-    plt.legend(('Polarity Portfolio','Equally-weighted Portfolio','SPY'))
-    plt.xlabel('Date')
-    plt.ylabel('Cumulative Log Return')
-    plt.title(strategy)
-    plt.show()
-
-portfolios('Long only',0, 'noneed')
-portfolios('Long only',1, 'noneed')
-portfolios('Long only',2, 'noneed')
-portfolios('Long only',3, 'noneed')
-portfolios('Long only',4, 'noneed')
-portfolios('Short only',0, 'noneed')
-portfolios('Short only',1, 'noneed')
-portfolios('Short only',2, 'noneed')
-portfolios('Short only',3, 'noneed')
-portfolios('Short only',4, 'noneed')
-portfolios('Long minus short',0, 0.3)
-portfolios('Long minus short',1, 0.3)
-portfolios('Long minus short',2, 0.3)
-portfolios('Long minus short',3, 0.3)
-portfolios('Long minus short',4, 0.01)
-portfolios('Long minus short',4, 0.3)
-portfolios('Long minus short',4, 1)
-
-
-def confmat(data,strat, bot_thresh, top_thresh, rebalanceday,pr='no'):
-    #Long top decile
-    PfWeights = RET.copy()
-    PfWeights.loc[:, :] = 0
-
-    for _, row in CAP.iterrows():
-
-        col_to_keep = RET.loc[_, RET.loc[_, :] != 0].index.to_list()
-        col_to_remove = RET.loc[_, RET.loc[_, :] == 0].index.to_list()
-        if not row[col_to_keep].empty:
-            if row.name.weekday() == rebalanceday:  # construct long short portfolio on friday 16pm
-                PfWeights.loc[_, row >= top_thresh] = 1
-                PfWeights.loc[_, row < bot_thresh] = -1
-                PfWeights.loc[_, col_to_remove] = 0
-            else:
-                PfWeights.loc[_, :] = np.nan
-
-    PfWeights = PfWeights.ffill()  # hold portfolio
-
-    PfWeights_unstack = PfWeights.unstack().reset_index(drop=False)
-    PfWeights_unstack.rename(columns={0:'orderdirection'},inplace=True)
-    data = pd.merge(data, PfWeights_unstack,  how='left', left_on=['date','ticker'], right_on = ['date','ticker'])
-
-    measures = dict()
-
-    Bull_Long = np.sum((data['Type'] == 'Good') & (data['orderdirection'] == 1))
-    Bull_Short = np.sum((data['Type'] == 'Good') & (data['orderdirection'] == -1))
-    Bull_None = np.sum((data['Type'] == 'Good') & (data['orderdirection'] == 0))
-    Bear_Long = np.sum((data['Type'] == 'Bad') & (data['orderdirection'] == 1))
-    Bear_Short = np.sum((data['Type'] == 'Bad') & (data['orderdirection'] == -1))
-    Bear_None = np.sum((data['Type'] == 'Bad') & (data['orderdirection'] == 0))
-    Neut_Long = np.sum((data['Type'] == 'Neutral') & (data['orderdirection'] == 1))
-    Neut_Short = np.sum((data['Type'] == 'Neutral') & (data['orderdirection'] == -1))
-    Neut_None = np.sum((data['Type'] == 'Neutral') & (data['orderdirection'] == 0))
-    NoEvent_Long = np.sum((data['Event3'] == False) & (data['orderdirection'] == 1))
-    NoEvent_Short = np.sum((data['Event3'] == False) & (data['orderdirection'] == -1))
-    NoEvent_None = np.sum((data['Event3'] == False) & (data['orderdirection'] == 0))
-
-    if strat == "long":
-        measures['TP'] = Bull_Long
-        measures['FN'] = Bull_Short + Neut_Short + NoEvent_Short
-        measures['FP'] = Bear_Long + Neut_Long + NoEvent_Long
-        measures['TN'] = Bear_Short
-
-    if strat == "short":
-        measures['TP'] = Bear_Short
-        measures['FN'] = Bear_Long + Neut_Long + NoEvent_Long
-        measures['FP'] = Bull_Short + Neut_Short + NoEvent_Short
-        measures['TN'] = Bull_Long
-
-    measures['precision'] = measures['TP'].sum().sum() / (measures['TP'].sum().sum() + measures['FP'].sum().sum())
-    measures['recall'] = measures['TP'].sum().sum() / (measures['TP'].sum().sum() + measures['FN'].sum().sum())
-    measures['specificity'] = measures['TN'].sum().sum() / (measures['TN'].sum().sum() + measures['FP'].sum().sum())
-    measures['f1score'] = 2 * measures['precision'] * measures['recall'] / (measures['precision'] + measures['recall'])
-
-    if pr=='yes':
-        print('-'*15, 'rebalance day : ', rebalanceday, '-'*15)
-        print('Bullish events, long positioned : ', Bull_Long)
-        print('Bullish events, short positioned : ', Bull_Short)
-        print('Bullish events, no position : ', Bull_None)
-        print('Bearish events, long positioned : ',Bear_Long)
-        print('Bearish events, short position : ', Bear_Short)
-        print('Bearish events, no position : ', Bear_None)
-        print('Neutral events, long positioned : ', Neut_Long)
-        print('Neutral events, short position : ', Neut_Short)
-        print('Neutral events, no position : ', Neut_None)
-        print('No events, no position : ', NoEvent_None)
-        print('No events, long position : ', NoEvent_Long)
-        print('No events, short position : ', NoEvent_Short)
-    return measures
-
-maxs = []
-for reb in [0,1,2,3,4]:
-    obs1  = []
-    for thresh in  np.linspace(-3,3,50):
-        measures = confmat(sentratio_and_price, 'long', thresh,thresh, reb,pr='no')
-        obs1.append([thresh, measures['f1score']])
-
-    obs2  = []
-    for thresh in  np.linspace(-3,3,50):
-        measures = confmat(sentratio_and_price, 'short', thresh,thresh, reb,pr='no')
-        obs2.append([thresh, measures['f1score']])
-
-    max1 = max(obs1,key=lambda x:x[1])
-    max2 = max(obs2,key=lambda x:x[1])
-
-    if reb==0:
-        day='Monday'
-        freqpar = 'W-MON'
-    if reb==1:
-        day='Tuesday'
-        freqpar = 'W-TUE'
-    if reb==2:
-        day='Wednesday'
-        freqpar = 'W-WED'
-    if reb==3:
-        day ='Thursday'
-        freqpar = 'W-THU'
-    if reb==4:
-        day ='Friday'
-        freqpar = 'W-FRI'
-
-    plt.style.use('seaborn-whitegrid')
-    plt.plot([item[0] for item in obs1], [item[1] for item in obs1], '-', color='green',label ='Long')
-    plt.plot([item[0] for item in obs2], [item[1] for item in obs2], '-', color='red', label='Short')
-    plt.scatter(max2[0], max2[1], s=80, facecolors='none', edgecolors='blue')
-    plt.scatter(max1[0], max1[1], s=80, facecolors='none', edgecolors='blue')
-    #plt.axvline(x=max2[0],  ymax=0.931, color = 'blue',  linestyle='--')
-    #plt.axvline(x=max1[0], ymax= 0.921, color = 'blue',  linestyle='--')
-    plt.legend()
-    plt.xlabel('Threshold')
-    plt.ylabel('F1 score')
-    plt.title('Optimal CAP thresholds, rebalancing day : ' + day)
-    #plt.savefig(vartoplot[:2] + '_' + jmptype + '.jpg')
-    plt.show()
-
-    confmat(sentratio_and_price, 'long', max1[0],max2[0], reb,pr='yes')
-    print(day,' : ', max1[0],' ',max2[0])
-    maxs.append([reb,max1[0],max2[0]])
-
-
-
-##########################################
-
-
-PfWeights = RET.copy()
-PfWeights.loc[:, :] = 0
-
-def confmat2(data,strat, bot_thresh, top_thresh, rebalanceday,pr='no'):
-    PfWeights = RET.copy()
-    PfWeights.loc[:, :] = 0
-    if reb == 0:
-        day = 'Monday'
-        freqpar = 'W-MON'
-    if reb == 1:
-        day = 'Tuesday'
-        freqpar = 'W-TUE'
-    if reb == 2:
-        day = 'Wednesday'
-        freqpar = 'W-WED'
-    if reb == 3:
-        day = 'Thursday'
-        freqpar = 'W-THU'
-    if reb == 4:
-        day = 'Friday'
-        freqpar = 'W-FRI'
-
-    for _, row in CAP.iterrows():
-        col_to_keep = RET.loc[_, RET.loc[_, :] != 0].index.to_list()
-        col_to_remove = RET.loc[_, RET.loc[_, :] == 0].index.to_list()
-        if not row[col_to_keep].empty:
-            if row.name.weekday() == rebalanceday:  # construct long short portfolio on friday 16pm
-                PfWeights.loc[_, row >= top_thresh] = 1
-                PfWeights.loc[_, row < bot_thresh] = -1
-                PfWeights.loc[_, col_to_remove] = 0
-            else:
-                PfWeights.loc[_, :] = np.nan
-
-    data = data[data['date'] > pd.to_datetime(pd.datetime(2011,1,21), utc = True)]
-    tickers = sentratio_and_price['ticker'].unique().tolist()
-    uniques = [pd.date_range(start=sentratio_and_price['date'].min(), end=sentratio_and_price['date'].max(), freq=freqpar).tolist(), tickers, ['Good','Neutral','Bad']]   #todo start='2012-01-01', end='2020-03-23'
-    cadre = pd.DataFrame(product(*uniques), columns = ['date','ticker','Type'])
-    cadre = cadre.sort_values(['ticker', 'date'], ascending=[1, 1])
-    see = sentratio_and_price.set_index('date').groupby([pd.Grouper(freq=freqpar),'ticker','Type'])['Event3'].count().reset_index().sort_values(['date', 'ticker'], ascending=[1, 1])
-    see['date'] = see['date'] + timedelta(days=-7)
-    see = pd.merge(cadre, see,  how='left', left_on=['date','ticker','Type'], right_on = ['date','ticker','Type'])
-
-    perweek = pd.pivot_table(see, values = 'Event3', index = ['date','ticker'], columns='Type',dropna = False).reset_index()
-    PfWeights_unstack = PfWeights.unstack().reset_index(drop=False)
-    PfWeights_unstack.rename(columns={0: 'orderdirection'}, inplace=True)
-    perweek = pd.merge(perweek, PfWeights_unstack, how='left', left_on=['date', 'ticker'], right_on=['date', 'ticker'])
-
-    #does not sum to number of weeks because multiple events can happen on the same week
-    # not better to 3 class pb?
-    # neutral & no direction is correct
-    Bull_Long = np.sum((perweek['Good'] > 0) & (perweek['orderdirection'] == 1))
-    Bull_Short = np.sum((perweek['Good'] > 0) & (perweek['orderdirection'] == -1))
-    Bull_None = np.sum((perweek['Good'] > 0) & (perweek['orderdirection'] == 0))
-    Bear_Long = np.sum((perweek['Bad'] > 0) & (perweek['orderdirection'] == 1))
-    Bear_Short = np.sum((perweek['Bad'] > 0) & (perweek['orderdirection'] == -1))
-    Bear_None = np.sum((perweek['Bad'] > 0) & (perweek['orderdirection'] == 0))
-    Neut_Long = np.sum((perweek['Neutral'] > 0) & (perweek['orderdirection'] == 1))
-    Neut_Short = np.sum((perweek['Neutral'] > 0) & (perweek['orderdirection'] == -1))
-    Neut_None = np.sum((perweek['Neutral'] > 0) & (perweek['orderdirection'] == 0))
-    NoEvent_Long = np.sum((perweek['Good'].isna() & perweek['Neutral'].isna() & perweek['Bad'].isna()) & (perweek['orderdirection'] == 1))
-    NoEvent_Short = np.sum((perweek['Good'].isna() & perweek['Neutral'].isna() & perweek['Bad'].isna()) & (perweek['orderdirection'] == -1))
-    NoEvent_None = np.sum((perweek['Good'].isna() & perweek['Neutral'].isna() & perweek['Bad'].isna()) & (perweek['orderdirection'] == 0))
-
-    measures = dict()
-    if strat == "long":
-        measures['TP'] = Bull_Long
-        measures['FN'] = Bull_Short + Neut_Short + NoEvent_Short
-        measures['FP'] = Bear_Long + Neut_Long + NoEvent_Long
-        measures['TN'] = Bear_Short
-
-    if strat == "short":
-        measures['TP'] = Bear_Short
-        measures['FN'] = Bear_Long + Neut_Long + NoEvent_Long
-        measures['FP'] = Bull_Short + Neut_Short + NoEvent_Short
-        measures['TN'] = Bull_Long
-
-    measures['precision'] = measures['TP'].sum().sum() / (measures['TP'].sum().sum() + measures['FP'].sum().sum())
-    measures['recall'] = measures['TP'].sum().sum() / (measures['TP'].sum().sum() + measures['FN'].sum().sum())
-    measures['specificity'] = measures['TN'].sum().sum() / (measures['TN'].sum().sum() + measures['FP'].sum().sum())
-    measures['f1score'] = 2 * measures['precision'] * measures['recall'] / (measures['precision'] + measures['recall'])
-
-    if pr == 'yes':
-        print('-' * 15, 'rebalance day : ', rebalanceday, '-' * 15)
-        print('Bullish events, long positioned : ', Bull_Long)
-        print('Bullish events, short positioned : ', Bull_Short)
-        print('Bullish events, no position : ', Bull_None)
-        print('Bearish events, long positioned : ', Bear_Long)
-        print('Bearish events, short position : ', Bear_Short)
-        print('Bearish events, no position : ', Bear_None)
-        print('Neutral events, long positioned : ', Neut_Long)
-        print('Neutral events, short position : ', Neut_Short)
-        print('Neutral events, no position : ', Neut_None)
-        print('No events, no position : ', NoEvent_None)
-        print('No events, long position : ', NoEvent_Long)
-        print('No events, short position : ', NoEvent_Short)
-        print(measures)
-    return measures
-
-
-maxs = []
-for reb in [0,1,2,3,4]:
-    obs1  = []
-    for thresh in  np.linspace(-3,3,30):
-        measures = confmat2(sentratio_and_price, 'long', thresh,thresh, reb,pr='no')
-        obs1.append([thresh, measures['f1score']])
-
-    obs2  = []
-    for thresh in  np.linspace(-3,3,30):
-        measures = confmat2(sentratio_and_price, 'short', thresh,thresh, reb,pr='no')
-        obs2.append([thresh, measures['f1score']])
-
-    max1 = max(obs1,key=lambda x:x[1])
-    max2 = max(obs2,key=lambda x:x[1])
-
-    if reb==0:
-        day='Monday'
-        freqpar = 'W-MON'
-    if reb==1:
-        day='Tuesday'
-        freqpar = 'W-TUE'
-    if reb==2:
-        day='Wednesday'
-        freqpar = 'W-WED'
-    if reb==3:
-        day ='Thursday'
-        freqpar = 'W-THU'
-    if reb==4:
-        day ='Friday'
-        freqpar = 'W-FRI'
-
-    plt.style.use('seaborn-whitegrid')
-    plt.plot([item[0] for item in obs1], [item[1] for item in obs1], '-', color='green',label ='Long')
-    plt.plot([item[0] for item in obs2], [item[1] for item in obs2], '-', color='red', label='Short')
-    plt.scatter(max2[0], max2[1], s=80, facecolors='none', edgecolors='blue')
-    plt.scatter(max1[0], max1[1], s=80, facecolors='none', edgecolors='blue')
-    #plt.axvline(x=max2[0],  ymax=0.931, color = 'blue',  linestyle='--')
-    #plt.axvline(x=max1[0], ymax= 0.921, color = 'blue',  linestyle='--')
-    plt.legend()
-    plt.xlabel('Threshold')
-    plt.ylabel('F1 score')
-    plt.title('Optimal CAP thresholds, rebalancing day : ' + day)
-    #plt.savefig(vartoplot[:2] + '_' + jmptype + '.jpg')
-    plt.show()
-
-    confmat2(sentratio_and_price, 'long', max1[0],max2[0], reb,pr='yes')
-    print(day,' : ', max1[0],' ',max2[0])
-    maxs.append([reb,max1[0],max2[0]])
-
-
 ##########################################
 
 PfWeights = RET.copy()
 PfWeights.loc[:, :] = 0
 
-sentratio_and_price = sentratio_and_price[sentratio_and_price['date'] > pd.to_datetime(pd.datetime(2011, 1, 21), utc=True)]
+sentratio_and_price = sentratio_and_price[sentratio_and_price['date'] > pd.to_datetime(pd.datetime(2011, 1, 28), utc=True)]
 sentratio_and_price['next5'] = np.nan
 
-horizon = 5
+horizon = 2
 def next5(x,horizon):
     for i in x.index:
-        if any(x.loc[i:i+horizon-1,'Type']=='Neutral') == True:
+        if any(x.loc[i+1:i+horizon-1,'Type']=='Neutral') == True:
             x.loc[i,'next5'] = 'Neutral'
-        if any(x.loc[i:i+horizon-1,'Type']=='Bad') == True:
+        if any(x.loc[i+1:i+horizon-1,'Type']=='Bad') == True:
             x.loc[i,'next5'] = 'Bad'
-        if any(x.loc[i:i+horizon-1,'Type']=='Good') == True:
+        if any(x.loc[i+1:i+horizon-1,'Type']=='Good') == True:
             x.loc[i,'next5'] = 'Good'
-        if all(x.loc[i:i + horizon-1, 'Type'].isna()) == True:
+        if all(x.loc[i+1:i + horizon-1, 'Type'].isna()) == True:
             x.loc[i, 'next5'] = 'None'
     return x
 
 sentratio_and_price = sentratio_and_price.groupby('ticker').apply(next5, horizon=horizon)
 
-def confmat3(data,strat,short_thresh,long_thresh, pr='no'):
-    PfWeights = RET.copy()
-    PfWeights.loc[:, :] = 0
-    for _, row in CAP.iterrows():
-        col_to_keep = RET.loc[_, RET.loc[_, :] != 0].index.to_list()
-        col_to_remove = RET.loc[_, RET.loc[_, :] == 0].index.to_list()
-        if not row[col_to_keep].empty:
-            PfWeights.loc[_, row >= long_thresh] = 1
-            PfWeights.loc[_, row < short_thresh] = -1
-            PfWeights.loc[_, (row > short_thresh) & (row < long_thresh)] = 0
-            PfWeights.loc[_, col_to_remove] = 0
+rf = pd.read_csv("C:\\Users\\divernoi\\Dropbox\\PycharmProjects2\\tweet_sklearn\\rf.csv",sep=';')
+rf['date'] = pd.to_datetime(rf['caldt'],format="%Y%m%d")
+rf['date'] = pd.to_datetime(rf['date'], utc = True)
 
-    PfWeights_unstack = PfWeights.unstack().reset_index(drop=False)
-    PfWeights_unstack.rename(columns={0:'orderdirection'},inplace=True)
-    data = pd.merge(data, PfWeights_unstack,  how='left', left_on=['date','ticker'], right_on = ['date','ticker'])
+sentratio_and_price = pd.merge(sentratio_and_price, rf[['date','t90ret']],  how='left', left_on='date', right_on = 'date')
+sentratio_and_price['t90ret'] = sentratio_and_price['t90ret'].ffill()
+sentratio_and_price['t90ret'] = sentratio_and_price['t90ret'].fillna(0)
+sentratio_and_price['excess_return'] = sentratio_and_price['daily_return'] - sentratio_and_price['t90ret']
 
-    Bull_Long = np.sum((data['next5'] == 'Good') & (data['orderdirection'] == 1))
-    Bull_Short = np.sum((data['next5']== 'Good') & (data['orderdirection'] == -1))
-    Bull_None = np.sum((data['next5'] == 'Good') & (data['orderdirection'] == 0))
-    Bear_Long = np.sum((data['next5'] == 'Bad') & (data['orderdirection'] == 1))
-    Bear_Short = np.sum((data['next5']== 'Bad') & (data['orderdirection'] == -1))
-    Bear_None = np.sum((data['next5']== 'Bad') & (data['orderdirection'] == 0))
-    Neut_Long = np.sum((data['next5'] == 'Neutral') & (data['orderdirection'] == 1))
-    Neut_Short = np.sum((data['next5']  == 'Neutral') & (data['orderdirection'] == -1))
-    Neut_None = np.sum((data['next5']  == 'Neutral') & (data['orderdirection'] == 0))
-    NoEvent_Long = np.sum((data['next5']  == 'None') & (data['orderdirection'] == 1))
-    NoEvent_Short = np.sum((data['next5']  == 'None') & (data['orderdirection'] == -1))
-    NoEvent_None = np.sum((data['next5']  == 'None') & (data['orderdirection'] == 0))
+
+def perf(x):
+    return np.log(1+x).sum()
+
+## daily distributions of CAP
+
+
+
+def create_portfolios(data, sigmas, strat = 'long', plots = 'show'):
+    sentratio_and_price = data.copy()
+
+    if plots == 'create':
+        folder = "sigma " + str("{0:.2f}".format(sigmas))
+        path = os.path.join(os.getcwd(), 'results', 'Portfolios','Dynamic Thresholds' , 'CAP14', folder)
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+    plt.plot(sentratio_and_price[['date','CAP']].groupby('date').mean(),'b')
+    plt.plot(sentratio_and_price[['date','CAP']].groupby('date').mean()+sigmas*sentratio_and_price[['date','CAP']].groupby('date').std(),'g')
+    plt.plot(sentratio_and_price[['date','CAP']].groupby('date').mean()-sigmas*sentratio_and_price[['date','CAP']].groupby('date').std(),'r')
+    plt.legend(('Mean','Mean+' + str(sigmas) + 'std', 'Mean-' + str(sigmas) + 'std'))
+    plt.title('Cross-sectional statistics of CAP')
+    plt.xlabel('Date')
+    if plots =='create':
+        plt.savefig(os.path.join(path, 'cross_sectional_cap.jpg'))
+        plt.close()
+    elif plots == 'show':
+        plt.show()
+    else:
+        plt.close()
+
+
+    mean = sentratio_and_price[['date','CAP']].groupby('date').mean().rename(columns={'CAP':'CAPmean'})
+    up = sentratio_and_price[['date','CAP']].groupby('date').mean() + sigmas*sentratio_and_price[['date','CAP']].groupby('date').std()
+    up = up.rename(columns={'CAP':'CAP_up'})
+    down = sentratio_and_price[['date','CAP']].groupby('date').mean() - sigmas*sentratio_and_price[['date','CAP']].groupby('date').std()
+    down = down.rename(columns={'CAP':'CAP_down'})
+
+    sentratio_and_price['CAPmean'] = pd.merge(sentratio_and_price[['date']],mean,left_on='date',right_index=True)['CAPmean']
+    sentratio_and_price['CAP_up'] = pd.merge(sentratio_and_price[['date']],up,left_on='date',right_index=True)['CAP_up']
+    sentratio_and_price['CAP_down'] = pd.merge(sentratio_and_price[['date']],down,left_on='date',right_index=True)['CAP_down']
+
+    sentratio_and_price['long_position'] = 1*(sentratio_and_price['CAP'] > sentratio_and_price['CAP_up'])
+    sentratio_and_price['short_position'] = 1*(sentratio_and_price['CAP'] < sentratio_and_price['CAP_down'])
+
+    sentratio_and_price.loc[sentratio_and_price['excess_return'].isna(), 'opti_position'] = 0
+    sentratio_and_price.loc[sentratio_and_price['excess_return'].isna(), 'long_position'] = 0
+    sentratio_and_price.loc[sentratio_and_price['excess_return'].isna(), 'short_position'] = 0
+
+    LONGPOS = pd.pivot_table(sentratio_and_price, values = 'long_position', index = 'date', columns='ticker',dropna = False)
+    SHORTPOS = pd.pivot_table(sentratio_and_price, values = 'short_position', index = 'date', columns='ticker',dropna = False)
+
+    EXCESSRET = pd.pivot_table(sentratio_and_price, values = 'excess_return', index = 'date', columns='ticker',dropna = False)
+    EXCESSRET = EXCESSRET.replace(np.nan, 0)
+
+    holding_period = 1
+    indexer = pd.api.indexers.FixedForwardWindowIndexer(window_size=holding_period)
+    EXCESSRET_next5 =(1.+ EXCESSRET).shift(-1).rolling(window=indexer).agg(lambda x : x.prod()) -1
+
+    PF_LONG = np.sum(LONGPOS * EXCESSRET_next5 , axis = 1) / np.sum(LONGPOS!=0, axis = 1)
+    PF_SHORT = np.sum(SHORTPOS * EXCESSRET_next5 , axis = 1) / np.sum(SHORTPOS!=0, axis = 1)
+    PFS = pd.merge(pd.DataFrame({'Bullish': PF_LONG}), pd.DataFrame({'Bearish': PF_SHORT}), how='left', right_index=True,
+                   left_index=True)
+
+    plt.plot(PF_LONG.index, PF_LONG, color='green', label='Bullish')
+    plt.plot(PF_SHORT.index, PF_SHORT, color='red', label='Bearish')
+    plt.legend()
+    plt.title(str(holding_period) + '-days portfolio returns')
+    plt.xlabel('Date')
+    plt.ylabel('Portfolio return')
+    if plots =='create':
+        plt.savefig(os.path.join(path, 'returns.jpg'))
+        plt.close()
+    elif plots == 'show':
+        plt.show()
+    else:
+        plt.close()
+
+    ax = sns.boxplot(data=PFS, whis=1.5, palette={"Bullish": "green", "Bearish": "red"})
+    plt.title(str(holding_period) + '-days portfolio returns')
+    if plots =='create':
+        plt.savefig(os.path.join(path, 'boxplot.jpg'))
+        plt.close()
+    elif plots == 'show':
+        plt.show()
+    else:
+        plt.close()
+
+    ax = sns.boxplot(data=PFS, whis=1.5, palette={"Bullish": "green", "Bearish": "red"})
+    plt.title(str(holding_period) + '-days portfolio returns')
+    plt.ylim([-0.1, 0.1])
+    if plots =='create':
+        plt.savefig(os.path.join(path, 'boxplot_zoomed.jpg'))
+        plt.close()
+    elif plots == 'show':
+        plt.show()
+    else:
+        plt.close()
+
+
+    keep = np.sum(RET, axis=1) != 0
+    plt.plot(LONGPOS.loc[keep, :].index, np.sum(LONGPOS.loc[keep, :] != 0, axis=1), color='green', label='Bullish')
+    plt.plot(SHORTPOS.loc[keep, :].index, np.sum(SHORTPOS.loc[keep, :] != 0, axis=1), color='red',
+             label='Bearish')
+    plt.legend()
+    plt.title('Number of positions through the years')
+    plt.xlabel('Date')
+    plt.ylabel('Number of positions')
+    if plots =='create':
+        plt.savefig(os.path.join(path, 'positions.jpg'))
+        plt.close()
+    elif plots == 'show':
+        plt.show()
+    else:
+        plt.close()
+
+
+    labels, counts = np.unique(np.sum(LONGPOS != 0, axis=1), return_counts=True)
+    plt.bar(labels, counts, width=0.5, color = 'C0')
+    plt.title('Number of positions per bullish portfolio')
+    plt.xlabel('Number of positions')
+    plt.ylabel('Number of portfolios')
+    plt.xticks(ticks=list(range(np.max(np.sum(LONGPOS != 0, axis=1)) + 1)),
+               labels=list(range(np.max(np.sum(LONGPOS != 0, axis=1)) + 1)))
+    if plots == 'create':
+        plt.savefig(os.path.join(path, 'distribution_long_positions.jpg'))
+        plt.close()
+    elif plots == 'show':
+        plt.show()
+    else:
+        plt.close()
+
+    labels, counts = np.unique(np.sum(SHORTPOS != 0, axis=1), return_counts=True)
+    plt.bar(labels, counts, width=0.5, color = 'C0')
+    plt.xticks(ticks=list(range(np.max(np.sum(SHORTPOS != 0, axis=1))+1)),labels=list(range(np.max(np.sum(SHORTPOS != 0, axis=1))+1)))
+    plt.title('Number of positions per bearish portfolio')
+    plt.xlabel('Number of positions')
+    plt.ylabel('Number of portfolios')
+    if plots == 'create':
+        plt.savefig(os.path.join(path, 'distribution_short_positions.jpg'))
+        plt.close()
+    elif plots == 'show':
+        plt.show()
+    else:
+        plt.close()
+
+    labels_bull, counts_bull = np.unique(np.sum(LONGPOS != 0, axis=1), return_counts=True)
+    labels_bear, counts_bear = np.unique(np.sum(SHORTPOS != 0, axis=1), return_counts=True)
+    plt.bar(labels_bull-0.2, counts_bull, width=0.4, color = 'green', label = 'Bullish')
+    plt.bar(labels_bear+0.2, counts_bear, width=0.4, color='red', label='Bearish')
+    plt.xticks(ticks=list(range(np.max(labels_bull.tolist() + labels_bear.tolist())+1)),labels=list(range(np.max(labels_bull.tolist() + labels_bear.tolist())+1)))
+    plt.title('Number of positions per portfolio')
+    plt.xlabel('Number of positions')
+    plt.ylabel('Number of portfolios')
+    plt.legend()
+    if plots == 'create':
+        plt.savefig(os.path.join(path, 'distribution_positions.jpg'))
+        plt.close()
+    elif plots == 'show':
+        plt.show()
+    else:
+        plt.close()
+
+
+    # daily portfolio  #-3   5  looks ok
+    plt.plot(PFS.index, PFS.loc[:, 'Bullish'].apply(perf).fillna(0).cumsum(), 'g')
+    plt.plot(PFS.index, PFS.loc[:, 'Bearish'].apply(perf).fillna(0).cumsum(), 'r')
+    plt.plot(sentratio_and_price.loc[sentratio_and_price['ticker'] == 'AAPL', 'date'],
+             sentratio_and_price.loc[sentratio_and_price['ticker'] == 'AAPL', 'market_return'].apply(perf).fillna(
+                 0).cumsum(), 'b')
+    plt.legend(('Bullish Portfolio', 'Bearish Portfolio', 'SPY'))
+    plt.xlabel('Date')
+    plt.ylabel('Cumulative Log Return')
+    if plots =='create':
+        plt.savefig(os.path.join(path, 'cumulative_log_return.jpg'))
+        plt.close()
+    elif plots == 'show':
+        plt.show()
+    else:
+        plt.close()
+
+    # conf matrix
+
+    def optipos(x):
+        if x['long_position'] == 1:
+            return 1
+        elif x['short_position'] == 1:
+            return -1
+        else:
+            return 0
+
+    sentratio_and_price['opti_position'] = sentratio_and_price.apply(lambda x : optipos(x), axis = 1)
+
+    Bull_Long = np.sum((sentratio_and_price['next5'] == 'Good') & (sentratio_and_price['opti_position'] == 1))
+    Bull_Short = np.sum((sentratio_and_price['next5']== 'Good') & (sentratio_and_price['opti_position'] == -1))
+    Bull_None = np.sum((sentratio_and_price['next5'] == 'Good') & (sentratio_and_price['opti_position'] == 0))
+    Bear_Long = np.sum((sentratio_and_price['next5'] == 'Bad') & (sentratio_and_price['opti_position'] == 1))
+    Bear_Short = np.sum((sentratio_and_price['next5']== 'Bad') & (sentratio_and_price['opti_position'] == -1))
+    Bear_None = np.sum((sentratio_and_price['next5']== 'Bad') & (sentratio_and_price['opti_position'] == 0))
+    Neut_Long = np.sum((sentratio_and_price['next5'] == 'Neutral') & (sentratio_and_price['opti_position'] == 1))
+    Neut_Short = np.sum((sentratio_and_price['next5']  == 'Neutral') & (sentratio_and_price['opti_position'] == -1))
+    Neut_None = np.sum((sentratio_and_price['next5']  == 'Neutral') & (sentratio_and_price['opti_position'] == 0))
+    NoEvent_Long = np.sum((sentratio_and_price['next5']  == 'None') & (sentratio_and_price['opti_position'] == 1))
+    NoEvent_Short = np.sum((sentratio_and_price['next5']  == 'None') & (sentratio_and_price['opti_position'] == -1))
+    NoEvent_None = np.sum((sentratio_and_price['next5']  == 'None') & (sentratio_and_price['opti_position'] == 0))
 
     measures = dict()
     if strat == "long":
@@ -1447,249 +1345,109 @@ def confmat3(data,strat,short_thresh,long_thresh, pr='no'):
     measures['specificity'] = measures['TN'].sum().sum() / (measures['TN'].sum().sum() + measures['FP'].sum().sum())
     measures['f1score'] = 2 * measures['precision'] * measures['recall'] / (measures['precision'] + measures['recall'])
 
-    if pr == 'yes':
-        print('-' * 15, 'short threshold : ', short_thresh, ', long threshold : ', long_thresh , '-' * 15)
-        print('Bullish events, long positioned : ', Bull_Long)
-        print('Bullish events, short positioned : ', Bull_Short)
-        print('Bullish events, no position : ', Bull_None)
-        print('Bearish events, long positioned : ', Bear_Long)
-        print('Bearish events, short position : ', Bear_Short)
-        print('Bearish events, no position : ', Bear_None)
-        print('Neutral events, long positioned : ', Neut_Long)
-        print('Neutral events, short position : ', Neut_Short)
-        print('Neutral events, no position : ', Neut_None)
-        print('No events, no position : ', NoEvent_None)
-        print('No events, long position : ', NoEvent_Long)
-        print('No events, short position : ', NoEvent_Short)
-        print(measures)
-    return measures, data
-
-span = np.linspace(-3,3,100)
-obs1  = []
-for thresh in span:
-    measures,_ = confmat3(sentratio_and_price, 'long', thresh,thresh,pr='no')
-    obs1.append([thresh, measures['f1score'], measures['precision'], measures['recall'], measures['TPR'], measures['FPR']])
-
-obs2  = []
-for thresh in span:
-    measures,_ = confmat3(sentratio_and_price, 'short', thresh,thresh, pr='no')
-    obs2.append([thresh, measures['f1score'], measures['precision'], measures['recall'], measures['TPR'], measures['FPR']])
-
-f1_long = [x[1] for x in obs1]
-f1_short = [x[1] for x in obs2]
-max_long = obs1[np.nanargmax(f1_long)]
-max_short = obs2[np.nanargmax(f1_short)]
-
-plt.style.use('seaborn-whitegrid')
-plt.plot([item[0] for item in obs1], [item[1] for item in obs1], '-', color='green',label ='Long')
-plt.plot([item[0] for item in obs2], [item[1] for item in obs2], '-', color='red', label='Short')
-plt.scatter(max_short[0], max_short[1], s=80, facecolors='none', edgecolors='blue')
-plt.scatter(max_long[0], max_long[1], s=80, facecolors='none', edgecolors='blue')
-#plt.axvline(x=max2[0],  ymax=0.931, color = 'blue',  linestyle='--')
-#plt.axvline(x=max1[0], ymax= 0.921, color = 'blue',  linestyle='--')
-plt.legend()
-plt.xlabel('Threshold')
-plt.ylabel('F1 score')
-plt.title('CAP thresholds maximizing F1 score')
-#plt.savefig(vartoplot[:2] + '_' + jmptype + '.jpg')
-plt.show()
-
-plt.style.use('seaborn-whitegrid')
-plt.plot([item[3] for item in obs1], [item[2] for item in obs1], '-', color='green',label ='Long')
-plt.plot([item[3] for item in obs2], [item[2] for item in obs2], '-', color='red', label='Short')
-#plt.axvline(x=max2[0],  ymax=0.931, color = 'blue',  linestyle='--')
-#plt.axvline(x=max1[0], ymax= 0.921, color = 'blue',  linestyle='--')
-plt.legend()
-plt.xlabel('Recall')
-plt.ylabel('Precision')
-plt.title('Precision-recall curve')
-#plt.savefig(vartoplot[:2] + '_' + jmptype + '.jpg')
-plt.show()
-
-plt.style.use('seaborn-whitegrid')
-plt.plot([item[5] for item in obs1], [item[4] for item in obs1], '-', color='green',label ='Long')
-plt.plot([item[5] for item in obs2], [item[4] for item in obs2], '-', color='red', label='Short')
-#plt.axvline(x=max2[0],  ymax=0.931, color = 'blue',  linestyle='--')
-#plt.axvline(x=max1[0], ymax= 0.921, color = 'blue',  linestyle='--')
-plt.legend()
-plt.xlabel('FPR')
-plt.ylabel('TPR')
-plt.title('ROC curve')
-#plt.savefig(vartoplot[:2] + '_' + jmptype + '.jpg')
-plt.show()
-
-from numpy import trapz
-area = trapz(y=[item[4] for item in obs1], x=[item[5] for item in obs1])
-print("AUC Long =", -area)
-area = trapz(y=[item[4] for item in obs2], x=[item[5] for item in obs2])
-print("AUC Short =", area)
-
-
-confmat3(sentratio_and_price, 'short', max_short[0],max_short[0], pr='yes')
-
-m, d = confmat3(sentratio_and_price, 'long', max_short[0],max_long[0], pr='yes')
-
-def pos(x,short_thresh,long_thresh):
-    if x < short_thresh:
-        y = -1
-    elif short_thresh <= x <= long_thresh:
-        y = 0
-    elif x > long_thresh:
-        y = 1
-    else:
-        y=np.nan
-    return y
-
-def longpos(x,long_thresh):
-    if x > long_thresh:
-        y= 1
-    else:
-        y= 0
-    return y
-
-def shortpos(x,short_thresh):
-    if x < short_thresh:
-        y= 1
-    else:
-        y = 0
-    return y
-
-def find_nearest(array, value):
-    array = np.asarray(array)
-    idx = (np.abs(array - value)).argmin()
-    return idx
-
-prec_long = [x[2] for x in obs1]
-max_prec_long = obs1[np.nanargmax(prec_long)]
-max_prec_short = obs2[find_nearest([x[3] for x in obs2], 0.17)]
-
-rf = pd.read_csv("C:\\Users\\divernoi\\Dropbox\\PycharmProjects2\\tweet_sklearn\\rf.csv",sep=';')
-rf['date'] = pd.to_datetime(rf['caldt'],format="%Y%m%d")
-rf['date'] = pd.to_datetime(rf['date'], utc = True)
-
-sentratio_and_price = pd.merge(sentratio_and_price, rf[['date','t90ret']],  how='left', left_on='date', right_on = 'date')
-sentratio_and_price['t90ret'] = sentratio_and_price['t90ret'].ffill()
-sentratio_and_price['t90ret'] = sentratio_and_price['t90ret'].fillna(0)
-sentratio_and_price['excess_return'] = sentratio_and_price['daily_return'] - sentratio_and_price['t90ret']
-
-from scipy.stats import t
-
-Ps = []
-for short in np.linspace(0,-2,41):
-    for long in np.linspace(0,2.5,51):
-        if long > short:
-            #max_short[0]: maximizes f1 short   #max_long[0] : max f1 long, max_prec_long[0] : max precision long, max_prec_short[0] : max precision short
-            sentratio_and_price['opti_position'] = sentratio_and_price['CAP'].apply(pos,short_thresh = short,long_thresh = long)
-            sentratio_and_price['long_position'] = sentratio_and_price['CAP'].apply(longpos,long_thresh = long)
-            sentratio_and_price['short_position'] = sentratio_and_price['CAP'].apply(shortpos,short_thresh = short)
-
-            sentratio_and_price.loc[sentratio_and_price['excess_return'].isna(), 'opti_position'] = 0
-            sentratio_and_price.loc[sentratio_and_price['excess_return'].isna(), 'long_position'] = 0
-            sentratio_and_price.loc[sentratio_and_price['excess_return'].isna(), 'short_position'] = 0
-
-            OPTIPOS = pd.pivot_table(sentratio_and_price, values = 'opti_position', index = 'date', columns='ticker',dropna = False)
-            LONGPOS = pd.pivot_table(sentratio_and_price, values = 'long_position', index = 'date', columns='ticker',dropna = False)
-            SHORTPOS = pd.pivot_table(sentratio_and_price, values = 'short_position', index = 'date', columns='ticker',dropna = False)
-
-            EXCESSRET = pd.pivot_table(sentratio_and_price, values = 'excess_return', index = 'date', columns='ticker',dropna = False)
-            EXCESSRET = EXCESSRET.replace(np.nan, 0)
+    print('-' * 15, 'sigmas :', sigmas, '-' * 15)
+    print('Bullish events, long positioned : ', Bull_Long)
+    print('Bullish events, short positioned : ', Bull_Short)
+    print('Bullish events, no position : ', Bull_None)
+    print('Bearish events, long positioned : ', Bear_Long)
+    print('Bearish events, short position : ', Bear_Short)
+    print('Bearish events, no position : ', Bear_None)
+    print('Neutral events, long positioned : ', Neut_Long)
+    print('Neutral events, short position : ', Neut_Short)
+    print('Neutral events, no position : ', Neut_None)
+    print('No events, no position : ', NoEvent_None)
+    print('No events, long position : ', NoEvent_Long)
+    print('No events, short position : ', NoEvent_Short)
+    print(measures)
+    return measures, sentratio_and_price
+#
+# span = np.linspace(-3,3,20)
+# obs1  = []
+# for sig in span:
+#     measures,_ = create_portfolios(sentratio_and_price, sig, 'long', plots='no')
+#     obs1.append([sig, measures['f1score'], measures['precision'], measures['recall'], measures['TPR'], measures['FPR']])
+#
+# obs2  = []
+# for sig in span:
+#     measures,_ = create_portfolios(sentratio_and_price, sig, 'short', plots='no')
+#     obs2.append([sig, measures['f1score'], measures['precision'], measures['recall'], measures['TPR'], measures['FPR']])
+#
+# f1_long = [x[1] for x in obs1]
+# f1_short = [x[1] for x in obs2]
+# max_long = obs1[np.nanargmax(f1_long)]
+# max_short = obs2[np.nanargmax(f1_short)]
+#
+# plt.style.use('seaborn-whitegrid')
+# plt.plot([item[0] for item in obs1], [item[1] for item in obs1], '-', color='green',label ='Long')
+# plt.plot([item[0] for item in obs2], [item[1] for item in obs2], '-', color='red', label='Short')
+# plt.scatter(max_short[0], max_short[1], s=80, facecolors='none', edgecolors='blue')
+# plt.scatter(max_long[0], max_long[1], s=80, facecolors='none', edgecolors='blue')
+# #plt.axvline(x=max2[0],  ymax=0.931, color = 'blue',  linestyle='--')
+# #plt.axvline(x=max1[0], ymax= 0.921, color = 'blue',  linestyle='--')
+# plt.legend()
+# plt.xlabel('Threshold')
+# plt.ylabel('F1 score')
+# plt.title('CAP thresholds maximizing F1 score')
+# #plt.savefig(vartoplot[:2] + '_' + jmptype + '.jpg')
+# plt.show()
+#
+# plt.style.use('seaborn-whitegrid')
+# plt.plot([item[3] for item in obs1], [item[2] for item in obs1], '-', color='green',label ='Long')
+# plt.plot([item[3] for item in obs2], [item[2] for item in obs2], '-', color='red', label='Short')
+# #plt.axvline(x=max2[0],  ymax=0.931, color = 'blue',  linestyle='--')
+# #plt.axvline(x=max1[0], ymax= 0.921, color = 'blue',  linestyle='--')
+# plt.legend()
+# plt.xlabel('Recall')
+# plt.ylabel('Precision')
+# plt.title('Precision-recall curve')
+# #plt.savefig(vartoplot[:2] + '_' + jmptype + '.jpg')
+# plt.show()
+#
+# from numpy import trapz
+# area_long = trapz(y=[item[4] for item in obs1], x=[item[5] for item in obs1])
+# print("AUC Long =", -area_long)
+# area_short = trapz(y=[item[4] for item in obs2], x=[item[5] for item in obs2])
+# print("AUC Short =", area_short)
+#
+#
+# plt.style.use('seaborn-whitegrid')
+# plt.plot([item[5] for item in obs1], [item[4] for item in obs1], '-', color='green',label ='Long, AUC = ' + str("{:.2f}".format(-area_long)))
+# plt.plot([item[5] for item in obs2], [item[4] for item in obs2], '-', color='red', label='Short, AUC = ' + str("{:.2f}".format(area_short)))
+# #plt.axvline(x=max2[0],  ymax=0.931, color = 'blue',  linestyle='--')
+# #plt.axvline(x=max1[0], ymax= 0.921, color = 'blue',  linestyle='--')
+# plt.legend()
+# plt.xlabel('FPR')
+# plt.ylabel('TPR')
+# plt.title('ROC curve')
+# #plt.savefig(vartoplot[:2] + '_' + jmptype + '.jpg')
+# plt.show()
+#
+# def find_nearest(array, value):
+#     array = np.asarray(array)
+#     idx = (np.abs(array - value)).argmin()
+#     return idx
+#
+# prec_long = [x[2] for x in obs1]
+# max_prec_long = obs1[np.nanargmax(prec_long)]
+# max_prec_short = obs2[find_nearest([x[3] for x in obs2], 0.17)]
+#
+#
+# plt.style.use('seaborn-whitegrid')
+# plt.plot([item[0] for item in obs1], [item[1] for item in obs1], '-', color='green',label ='Long')
+# plt.plot([item[0] for item in obs2], [item[1] for item in obs2], '-', color='red', label='Short')
+# plt.scatter(max_prec_short[0], max_prec_short[1], s=80, facecolors='none', edgecolors='blue')
+# plt.scatter(max_prec_long[0], max_prec_long[1], s=80, facecolors='none', edgecolors='blue')
+# #plt.axvline(x=max2[0],  ymax=0.931, color = 'blue',  linestyle='--')
+# #plt.axvline(x=max1[0], ymax= 0.921, color = 'blue',  linestyle='--')
+# plt.legend()
+# plt.xlabel('Threshold')
+# plt.ylabel('F1 score')
+# plt.title('CAP thresholds maximizing precision')
+# #plt.savefig(vartoplot[:2] + '_' + jmptype + '.jpg')
+# plt.show()
 
 
-            indexer = pd.api.indexers.FixedForwardWindowIndexer(window_size=horizon)
-            EXCESSRET_next5 =(1.+ EXCESSRET).rolling(window=indexer).agg(lambda x : x.prod()) -1
-
-            PF_LONG = np.sum(LONGPOS * EXCESSRET_next5 , axis = 1) / np.sum(LONGPOS!=0, axis = 1)
-            PF_SHORT = np.sum(SHORTPOS * EXCESSRET_next5 , axis = 1) / np.sum(SHORTPOS!=0, axis = 1)
-
-            PFS = pd.merge(pd.DataFrame({'long':PF_LONG}), pd.DataFrame({'short':PF_SHORT}), how='left',right_index=True,left_index=True)
-            U, p = scipy.stats.mannwhitneyu(PFS['long'].dropna(), PFS['short'].dropna(), use_continuity=False)
-            n1 = PFS['long'].count()
-            n2 = PFS['short'].count()
-            Z = (int(U) - int(n1) * int(n2) / 2) / np.sqrt(int(n1) * int(n2) * (int(n1) + int(n2) + 1) / 12)
-
-            x1bar, x2bar, std1, std2 = np.nanmean(PFS['long']) , np.nanmean(PFS['short']) ,  np.nanstd(PFS['long']) ,  np.nanstd(PFS['short'])
-            tstat = (x1bar - x2bar) / (np.sqrt(((n1 - 1)*std1**2 + (n2-1)*std2**2) /(n1+n2-2)*(1/n1 + 1/n2)))
-            p_mean = 1 - t.cdf(tstat, n1+n2-2)
-            Ps.append([short,long,p])
-
-if p < 0.05:
-    concl = 'reject'
-else:
-    concl = 'not reject'
-print(p, concl)
-
-import seaborn as sns
-Ps = pd.DataFrame(Ps, columns = ['short threshold', 'long threshold', 'P'])
-sns.heatmap(Ps.pivot(index='short threshold', columns='long threshold', values='P'))
-plt.show()
-
-Ps2 = Ps
-Ps2['diff'] = Ps2['long threshold'] - Ps2['short threshold']
-see = Ps2.loc[Ps2['P']<0.05,:].sort_values(by='diff')
-
-plt.plot(PF_LONG.index, PF_LONG, color='green',label ='Long')
-plt.plot(PF_SHORT.index, PF_SHORT, color='red',label ='Short')
-plt.legend()
-plt.title(str(horizon)+'-days portfolio returns')
-plt.show()
-
-
-ax = sns.boxplot(data=PFS, whis=1.5, palette={"long": "green", "short": "red"})
-plt.title(str(horizon)+'-days portfolio returns')
-plt.show()
-
-
-keep = np.sum(RET,axis=1)!=0
-plt.plot(LONGPOS.loc[keep,:].index, np.sum(LONGPOS.loc[keep,:]!=0, axis = 1), color='green',label ='Long')
-plt.plot(SHORTPOS.loc[keep,:].index, np.sum(SHORTPOS.loc[keep,:]!=0, axis = 1), color='red',label ='Short')
-plt.legend()
-plt.title('Number of positions')
-plt.show()
-
-plt.hist(np.sum(LONGPOS!=0, axis = 1), bins = np.max(np.sum(LONGPOS!=0, axis = 1)))
-plt.title('Histogram - Number of positions - Long portfolio')
-plt.show()
-
-plt.hist(np.sum(SHORTPOS!=0, axis = 1), bins = np.max(np.sum(SHORTPOS!=0, axis = 1)))
-plt.title('Histogram - Number of positions - Short portfolio')
-plt.show()
-
-def perf(x):
-    return np.log(1+x).sum()
-
-weekday = ['Monday', 'Tuesday','Wednesday','Thursday','Friday']
-for i in range(5):
-    print(i)
-    plt.plot(PFS.loc[PFS.index.weekday == i].index, PFS.loc[PFS.index.weekday == i, 'long'].apply(perf).fillna(0).cumsum(), 'r')
-    plt.plot(PFS.loc[PFS.index.weekday == i].index, PFS.loc[PFS.index.weekday == i, 'short'].apply(perf).fillna(0).cumsum(), 'b')
-    plt.legend(('Long Polarity Portfolio', 'Short Polarity Portfolio'))
-    plt.xlabel('Date')
-    plt.ylabel('Cumulative Portfolio')
-    plt.title(weekday[i])
-    plt.show()
-
-plt.style.use('seaborn-whitegrid')
-plt.plot([item[0] for item in obs1], [item[1] for item in obs1], '-', color='green',label ='Long')
-plt.plot([item[0] for item in obs2], [item[1] for item in obs2], '-', color='red', label='Short')
-plt.scatter(max_prec_short[0], max_prec_short[1], s=80, facecolors='none', edgecolors='blue')
-plt.scatter(max_prec_long[0], max_prec_long[1], s=80, facecolors='none', edgecolors='blue')
-#plt.axvline(x=max2[0],  ymax=0.931, color = 'blue',  linestyle='--')
-#plt.axvline(x=max1[0], ymax= 0.921, color = 'blue',  linestyle='--')
-plt.legend()
-plt.xlabel('Threshold')
-plt.ylabel('F1 score')
-plt.title('CAP thresholds maximizing precision')
-#plt.savefig(vartoplot[:2] + '_' + jmptype + '.jpg')
-plt.show()
-
-def power_utility(w, gamma):
-    #gamma>0  : risk averse
-    #gamma<0 : risk seeker
-    #gamma = 1 : log utility
-    return ( w**(1-gamma) -1 ) / (1-gamma)
-
-initial_W = 100
-
-PFS_W = intial_W*(1+PFS)
-PFS_Utility.apply(power_utility(PFS_W, gamma = 0.5)) #risk averse
+create_portfolios(sentratio_and_price, 2.58, 'long', plots='create')
+create_portfolios(sentratio_and_price, 1.96, 'long', plots='create')
+create_portfolios(sentratio_and_price, 2.81, 'long', plots='create')
 

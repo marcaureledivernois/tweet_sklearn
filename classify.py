@@ -143,6 +143,7 @@ def bullish_proba(text,model):
 
 df['bullish_proba'] = df['clean_text'].apply(bullish_proba, model = orig_mod)
 
+
 #========================================== Compute E ==================================================================
 
 def efunc(x):
@@ -364,4 +365,34 @@ ros_mod_2gram_100k.predict_proba(['hello'])
 
 #clf = GridSearchCV(pipe, param_grid = param_grid, cv = 5, verbose=True, n_jobs=-1)
 
+
+feature_names = np.array(ros_mod_2gram_100k.named_steps["tfidfvectorizer"].get_feature_names())
+coefs = ros_mod_2gram_100k.named_steps["logisticregression"].coef_.flatten()
+
+txt = 'this company show sign of good result'
+feature_names[np.nonzero(ros_mod_2gram_100k.named_steps.tfidfvectorizer.transform([txt]).toarray()[0])[0]]
+coefs[np.nonzero(ros_mod_2gram_100k.named_steps.tfidfvectorizer.transform([txt]).toarray()[0])[0]]
+
+feat_importance = np.multiply(ros_mod_2gram_100k.named_steps.tfidfvectorizer.transform([txt]).toarray(), ros_mod_2gram_100k.named_steps.logisticregression.coef_)
+feat_importance = feat_importance[feat_importance != 0 ]
+
+# Zip coefficients and names together and make a DataFrame
+zipped = zip(feature_names[np.nonzero(ros_mod_2gram_100k.named_steps.tfidfvectorizer.transform([txt]).toarray()[0])[0]], feat_importance)
+dfz = pd.DataFrame(zipped, columns=["feature", "value"])# Sort the features by the absolute value of their coefficient
+dfz["abs_value"] = dfz["value"].apply(lambda x: abs(x))
+dfz["colors"] = dfz["value"].apply(lambda x: "green" if x > 0 else "red")
+dfz = dfz.sort_values("abs_value", ascending=False)
+
+
+import seaborn as sns
+fig, ax = plt.subplots(1, 1, figsize=(12, 7))
+sns.barplot(x="feature",
+            y="value",
+            data=dfz.head(20),
+           palette=dfz.head(20)["colors"])
+ax.set_xticklabels(ax.get_xticklabels(), rotation=90, fontsize=20)
+ax.set_title("Feature importance", fontsize=25)
+ax.set_ylabel("Coef", fontsize=22)
+ax.set_xlabel("Feature Name", fontsize=22)
+plt.show()
 

@@ -988,3 +988,582 @@ plt.scatter(sentratio_and_price.loc[(sentratio_and_price['Type'] == 'Bad') & (se
 plt.show()
 
 
+
+
+def portfolios(strategy, rebalancing_day,lev):
+    PfWeights = RET.copy()
+    PfWeights.loc[:,:] = 0
+
+    for _, row in CAP.iterrows():
+
+        col_to_keep = RET.loc[_,RET.loc[_,:]!= 0].index.to_list()
+        col_to_remove = RET.loc[_, RET.loc[_, :] == 0].index.to_list()
+        if not row[col_to_keep].empty:
+            if row.name.weekday() == rebalancing_day: #construct long short portfolio on friday 16pm
+                #PfWeights.loc[_, row <=  np.nanpercentile(row[col_to_keep], np.arange(0, 100, 10))[0]] = -1
+                #PfWeights.loc[_, row >= np.nanpercentile(row[col_to_keep], np.arange(0, 100, 10))[-1]] = 1
+                PfWeights.loc[_, row <=  -1.04] = -1
+                PfWeights.loc[_, row >= 1.163] = 1
+                PfWeights.loc[_, col_to_remove] = 0
+            else:
+                PfWeights.loc[_, :] = np.nan
+
+    PfWeights = PfWeights.ffill() #hold portfolio
+
+    if strategy=='Long only':
+        leverage = 0
+        for _, row in PfWeights.iterrows():  # compute weights
+            PfWeights.loc[_, row == 1] = (1 + leverage) / np.abs(np.sum(row == 1))
+            PfWeights.loc[_, row == -1] = 0
+    if strategy=='Short only':
+        leverage = -1
+        for _, row in PfWeights.iterrows():  # compute weights
+            PfWeights.loc[_, row == 1] = 0
+            PfWeights.loc[_, row == -1] = leverage / np.abs(np.sum(row == -1))
+    if strategy == 'Long minus short':
+        leverage = lev
+        for _, row in PfWeights.iterrows():  # compute weights
+            PfWeights.loc[_, row == 1] = (1 + leverage) / np.sum(row == 1)
+            PfWeights.loc[_, row == -1] = -leverage / np.abs(np.sum(row == -1))
+
+    EquallyWeightedRet = np.log((np.sum(RET, axis = 1)/np.sum(RET!=0, axis = 1))+1)
+
+    contrib = RET*PfWeights.shift(1)
+    PfRet = np.log(np.sum(RET*PfWeights.shift(1),axis=1)+1)
+    PfRet = PfRet[PfRet.index<pd.to_datetime(pd.datetime(2020,1,1), utc = True)]
+    SPY = np.log(1+ RET['SPY'])
+
+
+    plt.plot(PfRet.index,PfRet.cumsum(),'r')
+    plt.plot(EquallyWeightedRet.index,EquallyWeightedRet.cumsum(),'b')
+    plt.plot(RET.index,SPY.cumsum(),'g')
+    plt.legend(('Polarity Portfolio','Equally-weighted Portfolio','SPY'))
+    plt.xlabel('Date')
+    plt.ylabel('Cumulative Log Return')
+    plt.title(strategy)
+    plt.show()
+
+portfolios('Long only',0, 'noneed')
+portfolios('Long only',1, 'noneed')
+portfolios('Long only',2, 'noneed')
+portfolios('Long only',3, 'noneed')
+portfolios('Long only',4, 'noneed')
+portfolios('Short only',0, 'noneed')
+portfolios('Short only',1, 'noneed')
+portfolios('Short only',2, 'noneed')
+portfolios('Short only',3, 'noneed')
+portfolios('Short only',4, 'noneed')
+portfolios('Long minus short',0, 0.3)
+portfolios('Long minus short',1, 0.3)
+portfolios('Long minus short',2, 0.3)
+portfolios('Long minus short',3, 0.3)
+portfolios('Long minus short',4, 0.01)
+portfolios('Long minus short',4, 0.3)
+portfolios('Long minus short',4, 1)
+
+
+def confmat(data,strat, bot_thresh, top_thresh, rebalanceday,pr='no'):
+    #Long top decile
+    PfWeights = RET.copy()
+    PfWeights.loc[:, :] = 0
+
+    for _, row in CAP.iterrows():
+
+        col_to_keep = RET.loc[_, RET.loc[_, :] != 0].index.to_list()
+        col_to_remove = RET.loc[_, RET.loc[_, :] == 0].index.to_list()
+        if not row[col_to_keep].empty:
+            if row.name.weekday() == rebalanceday:  # construct long short portfolio on friday 16pm
+                PfWeights.loc[_, row >= top_thresh] = 1
+                PfWeights.loc[_, row < bot_thresh] = -1
+                PfWeights.loc[_, col_to_remove] = 0
+            else:
+                PfWeights.loc[_, :] = np.nan
+
+    PfWeights = PfWeights.ffill()  # hold portfolio
+
+    PfWeights_unstack = PfWeights.unstack().reset_index(drop=False)
+    PfWeights_unstack.rename(columns={0:'orderdirection'},inplace=True)
+    data = pd.merge(data, PfWeights_unstack,  how='left', left_on=['date','ticker'], right_on = ['date','ticker'])
+
+    measures = dict()
+
+    Bull_Long = np.sum((data['Type'] == 'Good') & (data['orderdirection'] == 1))
+    Bull_Short = np.sum((data['Type'] == 'Good') & (data['orderdirection'] == -1))
+    Bull_None = np.sum((data['Type'] == 'Good') & (data['orderdirection'] == 0))
+    Bear_Long = np.sum((data['Type'] == 'Bad') & (data['orderdirection'] == 1))
+    Bear_Short = np.sum((data['Type'] == 'Bad') & (data['orderdirection'] == -1))
+    Bear_None = np.sum((data['Type'] == 'Bad') & (data['orderdirection'] == 0))
+    Neut_Long = np.sum((data['Type'] == 'Neutral') & (data['orderdirection'] == 1))
+    Neut_Short = np.sum((data['Type'] == 'Neutral') & (data['orderdirection'] == -1))
+    Neut_None = np.sum((data['Type'] == 'Neutral') & (data['orderdirection'] == 0))
+    NoEvent_Long = np.sum((data['Event3'] == False) & (data['orderdirection'] == 1))
+    NoEvent_Short = np.sum((data['Event3'] == False) & (data['orderdirection'] == -1))
+    NoEvent_None = np.sum((data['Event3'] == False) & (data['orderdirection'] == 0))
+
+    if strat == "long":
+        measures['TP'] = Bull_Long
+        measures['FN'] = Bull_Short + Neut_Short + NoEvent_Short
+        measures['FP'] = Bear_Long + Neut_Long + NoEvent_Long
+        measures['TN'] = Bear_Short
+
+    if strat == "short":
+        measures['TP'] = Bear_Short
+        measures['FN'] = Bear_Long + Neut_Long + NoEvent_Long
+        measures['FP'] = Bull_Short + Neut_Short + NoEvent_Short
+        measures['TN'] = Bull_Long
+
+    measures['precision'] = measures['TP'].sum().sum() / (measures['TP'].sum().sum() + measures['FP'].sum().sum())
+    measures['recall'] = measures['TP'].sum().sum() / (measures['TP'].sum().sum() + measures['FN'].sum().sum())
+    measures['specificity'] = measures['TN'].sum().sum() / (measures['TN'].sum().sum() + measures['FP'].sum().sum())
+    measures['f1score'] = 2 * measures['precision'] * measures['recall'] / (measures['precision'] + measures['recall'])
+
+    if pr=='yes':
+        print('-'*15, 'rebalance day : ', rebalanceday, '-'*15)
+        print('Bullish events, long positioned : ', Bull_Long)
+        print('Bullish events, short positioned : ', Bull_Short)
+        print('Bullish events, no position : ', Bull_None)
+        print('Bearish events, long positioned : ',Bear_Long)
+        print('Bearish events, short position : ', Bear_Short)
+        print('Bearish events, no position : ', Bear_None)
+        print('Neutral events, long positioned : ', Neut_Long)
+        print('Neutral events, short position : ', Neut_Short)
+        print('Neutral events, no position : ', Neut_None)
+        print('No events, no position : ', NoEvent_None)
+        print('No events, long position : ', NoEvent_Long)
+        print('No events, short position : ', NoEvent_Short)
+    return measures
+
+maxs = []
+for reb in [0,1,2,3,4]:
+    obs1  = []
+    for thresh in  np.linspace(-3,3,50):
+        measures = confmat(sentratio_and_price, 'long', thresh,thresh, reb,pr='no')
+        obs1.append([thresh, measures['f1score']])
+
+    obs2  = []
+    for thresh in  np.linspace(-3,3,50):
+        measures = confmat(sentratio_and_price, 'short', thresh,thresh, reb,pr='no')
+        obs2.append([thresh, measures['f1score']])
+
+    max1 = max(obs1,key=lambda x:x[1])
+    max2 = max(obs2,key=lambda x:x[1])
+
+    if reb==0:
+        day='Monday'
+        freqpar = 'W-MON'
+    if reb==1:
+        day='Tuesday'
+        freqpar = 'W-TUE'
+    if reb==2:
+        day='Wednesday'
+        freqpar = 'W-WED'
+    if reb==3:
+        day ='Thursday'
+        freqpar = 'W-THU'
+    if reb==4:
+        day ='Friday'
+        freqpar = 'W-FRI'
+
+    plt.style.use('seaborn-whitegrid')
+    plt.plot([item[0] for item in obs1], [item[1] for item in obs1], '-', color='green',label ='Long')
+    plt.plot([item[0] for item in obs2], [item[1] for item in obs2], '-', color='red', label='Short')
+    plt.scatter(max2[0], max2[1], s=80, facecolors='none', edgecolors='blue')
+    plt.scatter(max1[0], max1[1], s=80, facecolors='none', edgecolors='blue')
+    #plt.axvline(x=max2[0],  ymax=0.931, color = 'blue',  linestyle='--')
+    #plt.axvline(x=max1[0], ymax= 0.921, color = 'blue',  linestyle='--')
+    plt.legend()
+    plt.xlabel('Threshold')
+    plt.ylabel('F1 score')
+    plt.title('Optimal CAP thresholds, rebalancing day : ' + day)
+    #plt.savefig(vartoplot[:2] + '_' + jmptype + '.jpg')
+    plt.show()
+
+    confmat(sentratio_and_price, 'long', max1[0],max2[0], reb,pr='yes')
+    print(day,' : ', max1[0],' ',max2[0])
+    maxs.append([reb,max1[0],max2[0]])
+
+
+
+
+def confmat2(data,strat, bot_thresh, top_thresh, rebalanceday,pr='no'):
+    PfWeights = RET.copy()
+    PfWeights.loc[:, :] = 0
+    if reb == 0:
+        day = 'Monday'
+        freqpar = 'W-MON'
+    if reb == 1:
+        day = 'Tuesday'
+        freqpar = 'W-TUE'
+    if reb == 2:
+        day = 'Wednesday'
+        freqpar = 'W-WED'
+    if reb == 3:
+        day = 'Thursday'
+        freqpar = 'W-THU'
+    if reb == 4:
+        day = 'Friday'
+        freqpar = 'W-FRI'
+
+    for _, row in CAP.iterrows():
+        col_to_keep = RET.loc[_, RET.loc[_, :] != 0].index.to_list()
+        col_to_remove = RET.loc[_, RET.loc[_, :] == 0].index.to_list()
+        if not row[col_to_keep].empty:
+            if row.name.weekday() == rebalanceday:  # construct long short portfolio on friday 16pm
+                PfWeights.loc[_, row >= top_thresh] = 1
+                PfWeights.loc[_, row < bot_thresh] = -1
+                PfWeights.loc[_, col_to_remove] = 0
+            else:
+                PfWeights.loc[_, :] = np.nan
+
+    data = data[data['date'] > pd.to_datetime(pd.datetime(2011,1,21), utc = True)]
+    tickers = sentratio_and_price['ticker'].unique().tolist()
+    uniques = [pd.date_range(start=sentratio_and_price['date'].min(), end=sentratio_and_price['date'].max(), freq=freqpar).tolist(), tickers, ['Good','Neutral','Bad']]   #todo start='2012-01-01', end='2020-03-23'
+    cadre = pd.DataFrame(product(*uniques), columns = ['date','ticker','Type'])
+    cadre = cadre.sort_values(['ticker', 'date'], ascending=[1, 1])
+    see = sentratio_and_price.set_index('date').groupby([pd.Grouper(freq=freqpar),'ticker','Type'])['Event3'].count().reset_index().sort_values(['date', 'ticker'], ascending=[1, 1])
+    see['date'] = see['date'] + timedelta(days=-7)
+    see = pd.merge(cadre, see,  how='left', left_on=['date','ticker','Type'], right_on = ['date','ticker','Type'])
+
+    perweek = pd.pivot_table(see, values = 'Event3', index = ['date','ticker'], columns='Type',dropna = False).reset_index()
+    PfWeights_unstack = PfWeights.unstack().reset_index(drop=False)
+    PfWeights_unstack.rename(columns={0: 'orderdirection'}, inplace=True)
+    perweek = pd.merge(perweek, PfWeights_unstack, how='left', left_on=['date', 'ticker'], right_on=['date', 'ticker'])
+
+    #does not sum to number of weeks because multiple events can happen on the same week
+    # not better to 3 class pb?
+    # neutral & no direction is correct
+    Bull_Long = np.sum((perweek['Good'] > 0) & (perweek['orderdirection'] == 1))
+    Bull_Short = np.sum((perweek['Good'] > 0) & (perweek['orderdirection'] == -1))
+    Bull_None = np.sum((perweek['Good'] > 0) & (perweek['orderdirection'] == 0))
+    Bear_Long = np.sum((perweek['Bad'] > 0) & (perweek['orderdirection'] == 1))
+    Bear_Short = np.sum((perweek['Bad'] > 0) & (perweek['orderdirection'] == -1))
+    Bear_None = np.sum((perweek['Bad'] > 0) & (perweek['orderdirection'] == 0))
+    Neut_Long = np.sum((perweek['Neutral'] > 0) & (perweek['orderdirection'] == 1))
+    Neut_Short = np.sum((perweek['Neutral'] > 0) & (perweek['orderdirection'] == -1))
+    Neut_None = np.sum((perweek['Neutral'] > 0) & (perweek['orderdirection'] == 0))
+    NoEvent_Long = np.sum((perweek['Good'].isna() & perweek['Neutral'].isna() & perweek['Bad'].isna()) & (perweek['orderdirection'] == 1))
+    NoEvent_Short = np.sum((perweek['Good'].isna() & perweek['Neutral'].isna() & perweek['Bad'].isna()) & (perweek['orderdirection'] == -1))
+    NoEvent_None = np.sum((perweek['Good'].isna() & perweek['Neutral'].isna() & perweek['Bad'].isna()) & (perweek['orderdirection'] == 0))
+
+    measures = dict()
+    if strat == "long":
+        measures['TP'] = Bull_Long
+        measures['FN'] = Bull_Short + Neut_Short + NoEvent_Short
+        measures['FP'] = Bear_Long + Neut_Long + NoEvent_Long
+        measures['TN'] = Bear_Short
+
+    if strat == "short":
+        measures['TP'] = Bear_Short
+        measures['FN'] = Bear_Long + Neut_Long + NoEvent_Long
+        measures['FP'] = Bull_Short + Neut_Short + NoEvent_Short
+        measures['TN'] = Bull_Long
+
+    measures['precision'] = measures['TP'].sum().sum() / (measures['TP'].sum().sum() + measures['FP'].sum().sum())
+    measures['recall'] = measures['TP'].sum().sum() / (measures['TP'].sum().sum() + measures['FN'].sum().sum())
+    measures['specificity'] = measures['TN'].sum().sum() / (measures['TN'].sum().sum() + measures['FP'].sum().sum())
+    measures['f1score'] = 2 * measures['precision'] * measures['recall'] / (measures['precision'] + measures['recall'])
+
+    if pr == 'yes':
+        print('-' * 15, 'rebalance day : ', rebalanceday, '-' * 15)
+        print('Bullish events, long positioned : ', Bull_Long)
+        print('Bullish events, short positioned : ', Bull_Short)
+        print('Bullish events, no position : ', Bull_None)
+        print('Bearish events, long positioned : ', Bear_Long)
+        print('Bearish events, short position : ', Bear_Short)
+        print('Bearish events, no position : ', Bear_None)
+        print('Neutral events, long positioned : ', Neut_Long)
+        print('Neutral events, short position : ', Neut_Short)
+        print('Neutral events, no position : ', Neut_None)
+        print('No events, no position : ', NoEvent_None)
+        print('No events, long position : ', NoEvent_Long)
+        print('No events, short position : ', NoEvent_Short)
+        print(measures)
+    return measures
+
+
+maxs = []
+for reb in [0,1,2,3,4]:
+    obs1  = []
+    for thresh in  np.linspace(-3,3,30):
+        measures = confmat2(sentratio_and_price, 'long', thresh,thresh, reb,pr='no')
+        obs1.append([thresh, measures['f1score']])
+
+    obs2  = []
+    for thresh in  np.linspace(-3,3,30):
+        measures = confmat2(sentratio_and_price, 'short', thresh,thresh, reb,pr='no')
+        obs2.append([thresh, measures['f1score']])
+
+    max1 = max(obs1,key=lambda x:x[1])
+    max2 = max(obs2,key=lambda x:x[1])
+
+    if reb==0:
+        day='Monday'
+        freqpar = 'W-MON'
+    if reb==1:
+        day='Tuesday'
+        freqpar = 'W-TUE'
+    if reb==2:
+        day='Wednesday'
+        freqpar = 'W-WED'
+    if reb==3:
+        day ='Thursday'
+        freqpar = 'W-THU'
+    if reb==4:
+        day ='Friday'
+        freqpar = 'W-FRI'
+
+    plt.style.use('seaborn-whitegrid')
+    plt.plot([item[0] for item in obs1], [item[1] for item in obs1], '-', color='green',label ='Long')
+    plt.plot([item[0] for item in obs2], [item[1] for item in obs2], '-', color='red', label='Short')
+    plt.scatter(max2[0], max2[1], s=80, facecolors='none', edgecolors='blue')
+    plt.scatter(max1[0], max1[1], s=80, facecolors='none', edgecolors='blue')
+    #plt.axvline(x=max2[0],  ymax=0.931, color = 'blue',  linestyle='--')
+    #plt.axvline(x=max1[0], ymax= 0.921, color = 'blue',  linestyle='--')
+    plt.legend()
+    plt.xlabel('Threshold')
+    plt.ylabel('F1 score')
+    plt.title('Optimal CAP thresholds, rebalancing day : ' + day)
+    #plt.savefig(vartoplot[:2] + '_' + jmptype + '.jpg')
+    plt.show()
+
+    confmat2(sentratio_and_price, 'long', max1[0],max2[0], reb,pr='yes')
+    print(day,' : ', max1[0],' ',max2[0])
+    maxs.append([reb,max1[0],max2[0]])
+
+
+
+def power_utility(w, gamma):
+    #gamma>0  : risk averse
+    #gamma<0 : risk seeker
+    #gamma = 1 : log utility
+    return ( w**(1-gamma) -1 ) / (1-gamma)
+
+initial_W = 100
+
+PFS_W = intial_W*(1+PFS)
+PFS_Utility.apply(power_utility(PFS_W, gamma = 0.5)) #risk averse
+
+
+#sns.displot(PFS.reset_index().melt(id_vars='date', var_name='type', value_name='ret'), x = 'ret' , hue = 'type' , kind = 'kde')
+#plt.show()
+
+
+#sns.displot(PFS.reset_index().melt(id_vars='date', var_name='type', value_name='ret'), x = 'ret' , hue = 'type' , element = 'step')
+#plt.show()
+
+#count, bins_count_short = np.histogram(PFS['short'].dropna(),100)
+#pdf_short = count / sum(count)
+#cdf_short = np.cumsum(pdf_short)
+#count, bins_count_long = np.histogram(PFS['long'].dropna(),100)
+#pdf_long = count / sum(count)
+#cdf_long = np.cumsum(pdf_long)
+
+## plotting PDF and CDF
+#plt.plot(bins_count_short[1:], cdf_short, label="short")
+#plt.plot(bins_count_long[1:], cdf_long, label="long")
+#plt.legend()
+#plt.show()
+
+
+#daily portfolio
+plt.plot(PFS.index, PFS.loc[:, 'long'].apply(perf).fillna(0).cumsum(), 'r')
+plt.plot(PFS.index, PFS.loc[:, 'short'].apply(perf).fillna(0).cumsum(), 'b')
+plt.legend(('Long Polarity Portfolio', 'Short Polarity Portfolio'))
+plt.xlabel('Date')
+plt.ylabel('Cumulative Log Return')
+plt.title('long = ' + str(long) + ', short = ' + str(short))
+plt.show()
+
+#weekly portfolio
+weekday = ['Monday', 'Tuesday','Wednesday','Thursday','Friday']
+for i in range(5):
+    print(i)
+    plt.plot(PFS.loc[PFS.index.weekday == i].index, PFS.loc[PFS.index.weekday == i, 'long'].apply(perf).fillna(0).cumsum(), 'r')
+    plt.plot(PFS.loc[PFS.index.weekday == i].index, PFS.loc[PFS.index.weekday == i, 'short'].apply(perf).fillna(0).cumsum(), 'b')
+    plt.legend(('Long Polarity Portfolio', 'Short Polarity Portfolio'))
+    plt.xlabel('Date')
+    plt.ylabel('Cumulative Portfolio')
+    plt.title(weekday[i])
+    plt.show()
+
+
+
+shortspan = [ 0.        , -0.76389114, -1.52778229, -2.29167343, -3,-3.5, -4,
+       -3.81945572, -4.58334687]
+longspan = [ 0.        ,  1.19876105,  2.39752211, 3, 3.5, 4,  4.79504421,
+        5.99380526,  7.19256632,  8]
+
+
+Ps = []
+for short in np.linspace(0, sentratio_and_price['CAP'].min() + 0.5, 10):    #np.linspace(0, sentratio_and_price['CAP'].min() + 0.5, 10)
+    for long in np.linspace(0,sentratio_and_price['CAP'].max()-0.5,10):  #np.linspace(0,sentratio_and_price['CAP'].max()-0.5,10)
+        if long > short:
+            #max_short[0]: maximizes f1 short   #max_long[0] : max f1 long, max_prec_long[0] : max precision long, max_prec_short[0] : max precision short
+            sentratio_and_price['opti_position'] = sentratio_and_price['CAP'].apply(pos,short_thresh = short,long_thresh = long)
+            sentratio_and_price['long_position'] = sentratio_and_price['CAP'].apply(longpos,long_thresh = long)
+            sentratio_and_price['short_position'] = sentratio_and_price['CAP'].apply(shortpos,short_thresh = short)
+
+            sentratio_and_price.loc[sentratio_and_price['excess_return'].isna(), 'opti_position'] = 0
+            sentratio_and_price.loc[sentratio_and_price['excess_return'].isna(), 'long_position'] = 0
+            sentratio_and_price.loc[sentratio_and_price['excess_return'].isna(), 'short_position'] = 0
+
+            OPTIPOS = pd.pivot_table(sentratio_and_price, values = 'opti_position', index = 'date', columns='ticker',dropna = False)
+            LONGPOS = pd.pivot_table(sentratio_and_price, values = 'long_position', index = 'date', columns='ticker',dropna = False)
+            SHORTPOS = pd.pivot_table(sentratio_and_price, values = 'short_position', index = 'date', columns='ticker',dropna = False)
+
+            EXCESSRET = pd.pivot_table(sentratio_and_price, values = 'excess_return', index = 'date', columns='ticker',dropna = False)
+            EXCESSRET = EXCESSRET.replace(np.nan, 0)
+
+            holding_period = 1
+            indexer = pd.api.indexers.FixedForwardWindowIndexer(window_size=holding_period)
+            EXCESSRET_next5 =(1.+ EXCESSRET).shift(-1).rolling(window=indexer).agg(lambda x : x.prod()) -1
+
+            PF_LONG = np.sum(LONGPOS * EXCESSRET_next5 , axis = 1) / np.sum(LONGPOS!=0, axis = 1)
+            PF_SHORT = np.sum(SHORTPOS * EXCESSRET_next5 , axis = 1) / np.sum(SHORTPOS!=0, axis = 1)
+
+            PFS = pd.merge(pd.DataFrame({'long':PF_LONG}), pd.DataFrame({'short':PF_SHORT}), how='left',right_index=True,left_index=True)
+            U, p_brunnermunzel = scipy.stats.brunnermunzel(PFS['long'].dropna(), PFS['short'].dropna())
+            n1 = PFS['long'].count()
+            n2 = PFS['short'].count()
+            #Z = (int(U) - int(n1) * int(n2) / 2) / np.sqrt(int(n1) * int(n2) * (int(n1) + int(n2) + 1) / 12)
+
+            x1bar, x2bar, std1, std2 = np.nanmean(PFS['long']) , np.nanmean(PFS['short']) ,  np.nanstd(PFS['long']) ,  np.nanstd(PFS['short'])
+            tstat = (x1bar - x2bar) / (np.sqrt(((n1 - 1)*std1**2 + (n2-1)*std2**2) /(n1+n2-2)*(1/n1 + 1/n2)))
+            _ , p_mean2 = scipy.stats.ttest_ind(PFS['long'], PFS['short'], axis=None, equal_var=False, nan_policy='omit')
+            p_mean = 1 - t.cdf(tstat, n1+n2-2)
+            Ps.append([short,long,p_brunnermunzel, p_mean2])
+
+            folder = "long " + str("{0:.2f}".format(long)) + ', short ' + str("{0:.2f}".format(short))
+            path = os.path.join(os.getcwd(), 'results', 'Portfolios','Static Thresholds' ,'CAP9','Reset', folder)
+            if not os.path.exists(path):
+                os.makedirs(path)
+
+            plt.plot(PF_LONG.index, PF_LONG, color='green', label='Long')
+            plt.plot(PF_SHORT.index, PF_SHORT, color='red', label='Short')
+            plt.legend()
+            plt.title(str(holding_period) + '-days portfolio returns, long = ' + str(long) + ', short = ' + str(short))
+            plt.savefig(os.path.join(path, 'returns.jpg'))
+            #plt.show()
+            plt.close()
+
+            ax = sns.boxplot(data=PFS, whis=1.5, palette={"long": "green", "short": "red"})
+            plt.title(str(holding_period) + '-days portfolio returns, long = ' + str(long) + ', short = ' + str(short))
+            # plt.ylim([-0.1,0.1])
+            plt.savefig(os.path.join(path, 'boxplot.jpg'))
+            #plt.show()
+            plt.close()
+
+            ax = sns.boxplot(data=PFS, whis=1.5, palette={"long": "green", "short": "red"})
+            plt.title(str(holding_period) + '-days portfolio returns, long = ' + str(long) + ', short = ' + str(short))
+            plt.ylim([-0.1, 0.1])
+            plt.savefig(os.path.join(path, 'boxplot_zoomed.jpg'))
+            #plt.show()
+            plt.close()
+
+            keep = np.sum(RET, axis=1) != 0
+            plt.plot(LONGPOS.loc[keep, :].index, np.sum(LONGPOS.loc[keep, :] != 0, axis=1), color='green', label='Long')
+            plt.plot(SHORTPOS.loc[keep, :].index, np.sum(SHORTPOS.loc[keep, :] != 0, axis=1), color='red',
+                     label='Short')
+            plt.legend()
+            plt.title('Number of positions, long = ' + str(long) + ', short = ' + str(short))
+            plt.savefig(os.path.join(path, 'positions.jpg'))
+            #plt.show()
+            plt.close()
+
+            plt.hist(np.sum(LONGPOS != 0, axis=1), bins=np.max(np.sum(LONGPOS != 0, axis=1)))
+            plt.title('Number of positions - Long portfolio, long = ' + str(long))
+            plt.savefig(os.path.join(path, 'distribution_long_positions.jpg'))
+            #plt.show()
+            plt.close()
+
+            plt.hist(np.sum(SHORTPOS != 0, axis=1), bins=np.max(np.sum(SHORTPOS != 0, axis=1)))
+            plt.title('Histogram - Number of positions - Short portfolio, short = ' + str(short))
+            plt.savefig(os.path.join(path, 'distribution_short_positions.jpg'))
+            #plt.show()
+            plt.close()
+
+            # daily portfolio  #-3   5  looks ok
+            plt.plot(PFS.index, PFS.loc[:, 'long'].apply(perf).fillna(0).cumsum(), 'g')
+            plt.plot(PFS.index, PFS.loc[:, 'short'].apply(perf).fillna(0).cumsum(), 'r')
+            plt.plot(sentratio_and_price.loc[sentratio_and_price['ticker']=='AAPL', 'date'], sentratio_and_price.loc[sentratio_and_price['ticker']=='AAPL', 'market_return'].apply(perf).fillna(0).cumsum(), 'b')
+            plt.legend(('Long Polarity Portfolio', 'Short Polarity Portfolio', 'SPY'))
+            plt.xlabel('Date')
+            plt.ylabel('Cumulative Log Return')
+            plt.title('long = ' + str(long) + ', short = ' + str(short))
+            plt.savefig(os.path.join(path , 'cumulative_log_return.jpg'))
+            #plt.show()
+            plt.close()
+
+
+scipy.stats.ttest_ind(PFS['long'], PFS['short'], axis=None, equal_var=False, nan_policy='omit')
+
+
+
+Ps = pd.DataFrame(Ps, columns = ['short threshold', 'long threshold', 'p_brunnermunzel', 'p_ttest'])
+Ps = Ps.round(3)
+
+sns.heatmap(Ps.pivot(index='short threshold', columns='long threshold', values='p_brunnermunzel'))
+plt.title('Brunnemunzel p-value heatmap')
+plt.savefig(os.path.join(os.getcwd(), 'results', 'Portfolios','CAP9' ,'Reset', 'Brunnemunzel_heatmap.jpg'))
+plt.show()
+plt.close()
+
+sns.heatmap(Ps.pivot(index='short threshold', columns='long threshold', values='p_ttest'))
+plt.title('Mean test p-value heatmap')
+plt.savefig(os.path.join(os.getcwd(), 'results', 'Portfolios','CAP9' , 'Reset','mean_test_heatmap.jpg'))
+plt.show()
+plt.close()
+
+# benchmarking portfolios
+
+long_reg = pd.merge(pd.DataFrame(PF_LONG),sentratio_and_price.loc[sentratio_and_price['ticker']=='AAPL',['date','market_return','t90ret']],left_index=True,right_on='date')
+long_reg.rename(columns={0:'long_pf_ret'}, inplace=True)
+long_reg = long_reg.fillna(0)
+long_reg.loc[:,'long_pf_ret'] = np.log(1+long_reg.loc[:,'long_pf_ret'])
+long_reg.loc[:,'market_return'] = np.log(1+long_reg.loc[:,'market_return']-long_reg.loc[:,'t90ret'])
+
+reg = sm.OLS(long_reg['long_pf_ret'], sm.add_constant(long_reg['market_return']), missing='drop').fit()
+par = reg.params
+sum = reg.summary2()
+print(sum)
+
+short_reg = pd.merge(pd.DataFrame(PF_SHORT),sentratio_and_price.loc[sentratio_and_price['ticker']=='AAPL',['date','market_return','t90ret']],left_index=True,right_on='date')
+short_reg.rename(columns={0:'short_pf_ret'}, inplace=True)
+short_reg = short_reg.fillna(0)
+short_reg.loc[:,'short_pf_ret'] = np.log(1+short_reg.loc[:,'short_pf_ret'])
+short_reg.loc[:,'market_return'] = np.log(1+short_reg.loc[:,'market_return']-short_reg.loc[:,'t90ret'])
+
+reg = sm.OLS(short_reg['short_pf_ret'], sm.add_constant(short_reg['market_return']), missing='drop').fit()
+par = reg.params
+sum = reg.summary2()
+print(sum)
+
+# fama french factors
+
+fff = pd.read_csv("C:\\Users\\divernoi\\Dropbox\\PycharmProjects2\\tweet_sklearn\\F-F_Research_Data_Factors_daily.csv",sep=',')
+fff.rename(columns={'Unnamed: 0':'date'},inplace=True)
+fff['date'] = pd.to_datetime(fff['date'],format="%Y%m%d")
+fff['date'] = pd.to_datetime(fff['date'], utc = True)
+
+fff[['Mkt-RF','SMB','HML']] = fff[['Mkt-RF','SMB','HML']]/100
+
+long_reg = pd.merge(pd.DataFrame(PF_LONG),fff[['date','Mkt-RF','SMB','HML']],left_index=True,right_on='date')
+long_reg.rename(columns={0:'long_pf_ret'}, inplace=True)
+long_reg = long_reg.fillna(0)
+long_reg.loc[:,'long_pf_ret'] = np.log(1+long_reg.loc[:,'long_pf_ret'])
+
+reg = sm.OLS(long_reg['long_pf_ret'], sm.add_constant(long_reg[['Mkt-RF','SMB','HML']]), missing='drop').fit()
+par = reg.params
+sum = reg.summary2()
+print(sum)
+
+short_reg = pd.merge(pd.DataFrame(PF_SHORT),fff[['date','Mkt-RF','SMB','HML']],left_index=True,right_on='date')
+short_reg.rename(columns={0:'short_pf_ret'}, inplace=True)
+short_reg = short_reg.fillna(0)
+short_reg.loc[:,'short_pf_ret'] = np.log(1+short_reg.loc[:,'short_pf_ret'])
+
+reg = sm.OLS(short_reg['short_pf_ret'], sm.add_constant(short_reg[['Mkt-RF','SMB','HML']]), missing='drop').fit()
+par = reg.params
+sum = reg.summary2()
+print(sum)
+
