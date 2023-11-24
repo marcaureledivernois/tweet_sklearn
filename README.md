@@ -5,7 +5,7 @@ Authors :
 * Marc-Aurèle Divernois
 * Damir Filipovic
 
-This is the repository for my paper "StockTwits Classified Sentiment and Stock Returns", written jointly with Pr. Damir Filipovic.
+This is the repository for the paper "StockTwits Classified Sentiment and Stock Returns", jointly written with Pr. Damir Filipovic.
 
 This project uses 90 million messages scraped from StockTwits (see repo stocktwits-download). 
 We classify thoses messages in three categories using logistic regression of TFIDF vectorized messages.
