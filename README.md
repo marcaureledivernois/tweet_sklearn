@@ -26,5 +26,5 @@ https://www.dropbox.com/s/d63t6hy2ggnolc5/df_withcorona_clean_2_with_proba_opti_
 
 Please cite our paper using the following citation :
 
-M.-A. Diveronis and D. Filipovic. StockTwits Classified Sentiment and Stock Returns. Digital Finance (forthcoming), 2023.
+M.-A. Divernois and D. Filipovic. StockTwits Classified Sentiment and Stock Returns. Digital Finance (forthcoming), 2023.
 
