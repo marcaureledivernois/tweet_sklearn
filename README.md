@@ -1,10 +1,4 @@
-
-## Stocktwits Sentiment Analysis Interactive App : 
-
-https://share.streamlit.io/marcaureledivernois/tweet_sklearn/main
-
-
-## StockTwits Classified Sentiment and Stock Returns (forthcoming in Digital Finance in 2024)
+## StockTwits Classified Sentiment and Stock Returns (forthcoming in Digital Finance)
 
 Authors : 
 
