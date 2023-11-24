@@ -18,7 +18,7 @@ polarity has predictive power on abnormal returns.
 https://www.dropbox.com/s/btyvj3r1lato783/df_withcorona_clean_1_with_proba_opti_and_hour.pkl?dl=0
 https://www.dropbox.com/s/d63t6hy2ggnolc5/df_withcorona_clean_2_with_proba_opti_and_hour.pkl?dl=0
 
-Please cite our paper using the following citation :
+Please acknowledge our paper using the following citation :
 
 M.-A. Divernois and D. Filipovic. StockTwits Classified Sentiment and Stock Returns. Digital Finance (forthcoming), 2023.
 
